@@ -74,7 +74,7 @@ The unit assumes the monitor lives in `~/inject-monitor` — adjust `ExecStart`/
 ## Security
 
 - The server binds to `127.0.0.1` by default and does not expose data to the network unless you change `--host`.
-- Every API request requires the token; without it the API answers `401`.
+- Every data API request requires the token; without it the API answers `401` (the `/api/ping` health check is the only exempt endpoint).
 - The database is opened read-only — the monitor never writes to your Hermes data.
 - `config.json` and the token file are git-ignored; never commit them.
 
