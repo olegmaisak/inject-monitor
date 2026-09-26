@@ -4,6 +4,8 @@ Web UI for diagnosing **harness & memory injections** into LLM requests of [Herm
 
 Inject Monitor reads the Hermes session database (SQLite, **read-only**) and shows exactly what was sent to the LLM: the session system prompt, the per-turn timeline (user / assistant / tool calls / tool results / reasoning), and every block injected into the request before it left for the API — both blocks built by the Hermes harness itself (system-prompt sections, MEMORY.md / USER.md blocks, the skills index, the runtime environment) and injections added by memory providers.
 
+![Inject Monitor — main view: session list with inject counters, message timeline, expandable injection blocks](docs/screenshot.png)
+
 > ⚠️ **Works with Hermes Agent only.** The data source is the Hermes session
 > database (`state.db`: `sessions`, `messages`, `system_prompts` tables).
 > This is not a generic LLM-history viewer and does not support other agent
