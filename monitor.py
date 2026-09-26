@@ -4,8 +4,8 @@
 Inject Monitor — web UI for diagnosing memory injections into Hermes LLM requests.
 
 Author: Oleg Maisak (idea & vibe coding) + Lex (coding agent, via Hermes Agent)
-Version: 0.32.0
-Date: 2026-09-21
+Version: 0.32.1
+Date: 2026-09-26
 
 Purpose:
   Reads the Hermes session database (SQLite, READ-ONLY) and shows:
@@ -60,7 +60,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-APP_VERSION = "0.32.0"
+APP_VERSION = "0.32.1"
 
 # ── Paths ───────────────────────────────────────────────────────────────────
 HOME = Path.home()
@@ -90,7 +90,9 @@ DEFAULT_EXPAND = {
 # Built-in defaults for a fresh installation (config.default.json is the
 # user-visible copy of these; BUILTIN_DEFAULTS is the fallback if the file
 # itself is missing). Values are chosen to suit most users:
-#   - the memory-plugin injection tags recognized out of the box.
+#   - the built-in Hermes system-prompt blocks recognized out of the box
+#     (memory-provider tags, e.g. <memory-context>, are added per provider
+#     via Settings -> Pairs).
 BUILTIN_DEFAULTS = {
     "port": DEFAULT_PORT,
     "db_path": "~/.hermes/state.db",
@@ -103,11 +105,41 @@ BUILTIN_DEFAULTS = {
     "indent_px": DEFAULT_INDENT_PX,
     "expand": DEFAULT_EXPAND,
     "tag_pairs": [
-        {"name": "memory-context", "open": "<memory-context>", "close": "</memory-context>"},
-        {"name": "turn-memory-recall", "open": "<turn-memory-recall>", "close": "</turn-memory-recall>"},
-        {"name": "fresh-intersession-memory", "open": "<fresh-intersession-memory", "close": "</fresh-intersession-memory>"},
-        {"name": "recent-intersession-memory", "open": "<recent-intersession-memory", "close": "</recent-intersession-memory>"},
-        {"name": "tool-memory-recall", "open": "<tool-memory-recall>", "close": "</tool-memory-recall>"},
+            {
+                    "name": "Hermes system prompt",
+                    "open": "You run on Hermes Agent (by Nous Research)",
+                    "close": ""
+            },
+            {
+                    "name": "<available_skills>",
+                    "open": "<available_skills>",
+                    "close": "</available_skills>"
+            },
+            {
+                    "name": "SOUL.md",
+                    "open": "# Hermes Agent Persona",
+                    "close": ""
+            },
+            {
+                    "name": "MEMORY.md",
+                    "open": "MEMORY (your personal notes)",
+                    "close": ""
+            },
+            {
+                    "name": "USER.md",
+                    "open": "USER PROFILE (who the user is)",
+                    "close": ""
+            },
+            {
+                    "name": "Hermes runtime environment",
+                    "open": "# Hermes runtime environment",
+                    "close": "<!-- End Hermes runtime environment -->"
+            },
+            {
+                    "name": "Conversation started",
+                    "open": "Conversation started:",
+                    "close": ""
+            }
     ],
 }
 

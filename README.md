@@ -1,26 +1,26 @@
 # Inject Monitor
 
-Web UI for diagnosing **memory injections** into LLM requests of [Hermes Agent](https://hermes-agent.nousresearch.com/docs) sessions.
+Web UI for diagnosing **harness & memory injections** into LLM requests of [Hermes Agent](https://hermes-agent.nousresearch.com/docs) sessions.
 
-Inject Monitor reads the Hermes session database (SQLite, **read-only**) and shows exactly what was sent to the LLM: the session system prompt, the per-turn timeline (user / assistant / tool calls / tool results / reasoning), and every memory block injected into the request before it left for the API.
+Inject Monitor reads the Hermes session database (SQLite, **read-only**) and shows exactly what was sent to the LLM: the session system prompt, the per-turn timeline (user / assistant / tool calls / tool results / reasoning), and every block injected into the request before it left for the API — both blocks built by the Hermes harness itself (system-prompt sections, MEMORY.md / USER.md blocks, the skills index, the runtime environment) and injections added by memory providers.
 
 > ⚠️ **Works with Hermes Agent only.** The data source is the Hermes session
 > database (`state.db`: `sessions`, `messages`, `system_prompts` tables).
 > This is not a generic LLM-history viewer and does not support other agent
-> frameworks. Also note: if your Hermes setup has no memory provider that
-> injects content into requests, there will simply be no injections to show
-> (the timeline still works).
+> frameworks.
+
+**What counts as an "injection" is defined entirely by your configured tag pairs** (Settings → Pairs). Defaults cover the blocks Hermes builds into the system prompt out of the box; if you run a memory provider, add its tag pairs the same way. This also lets you review the system prompt block by block (persona, memory files, skills, runtime environment) instead of one wall of text.
 
 ## Features
 
-- 🧩 Injections recognized by **configurable tag pairs** (e.g. `<memory-context>…</memory-context>`); nested blocks are parsed recursively and rendered flat, with breadcrumb labels (`memory-context > turn-memory-recall`)
+- 🧩 Injection blocks recognized by **configurable tag pairs**; nested blocks are parsed recursively and rendered flat, with breadcrumb labels (`memory-context > turn-memory-recall`)
 - 🕒 Per-session timeline: user messages, assistant answers, tool calls & results, reasoning blocks, with per-block expand/collapse
 - ⬇️ Inject counter badge per session in the session list
-- ⚙️ Settings UI: tag pairs, default expansion, panel width, server controls (restart / stop)
-- 🔐 **Token-based access**: the API answers 401 without `X-Auth-Token` (or `?token=`); the token is generated on first run, printed to the console, and stored in the file set by `token_file` (chmod 600)
+- ⚙️ Settings UI: tag pairs, UI settings, server controls (restart / stop)
+- 🔐 **Token-based access**: the API answers 401 without `X-Auth-Token` (or `?token=`)
 - 🧭 Built-in setup wizard: if the database is missing, the server still starts and the UI helps you point it at the right database
 - 🚀 **Zero dependencies**: Python 3 stdlib only (http.server, sqlite3) — nothing to pip-install
-- 🔄 Live auto-refresh polling, resizable side panel
+- 🔄 Live auto-refresh polling
 
 ## Requirements
 
@@ -39,16 +39,16 @@ python3 monitor.py
 The console prints the address together with the access token:
 
 ```
-Inject Monitor v0.32.0
-  Token:   /home/<you>/.hermes/inject-monitor-token
+Inject Monitor v0.32.1
+  Token:   /path/to/inject-monitor/inject-monitor-token
   Address: http://127.0.0.1:8092/?token=...
 ```
 
-Open that URL in a browser (or any URL of the UI — you will get the token login screen; the token is accepted via the form, the `?token=` URL parameter, or the `X-Auth-Token` header).
+On first start the monitor **generates a random access token** (`secrets.token_urlsafe`, chmod 600) and stores it in the file set by `token_file` — by default **in the monitor's own folder**. The easiest way in: open the printed URL. Alternatively, the login screen explains the manual flow: copy the token file (e.g. next to your Hermes installation) and paste the value from it into the token field.
 
 ## Configuration
 
-All runtime settings live in `config.json` next to `monitor.py` (create it from `config.default.json`). Keys:
+All runtime settings live in `config.json` next to `monitor.py`. It is **created on first run** from `config.default.json` and is **never overwritten** afterwards — your settings stay yours. Keys:
 
 | Key | Meaning |
 |---|---|
@@ -57,8 +57,8 @@ All runtime settings live in `config.json` next to `monitor.py` (create it from 
 | `db_path` | Path to Hermes `state.db` (opened **read-only**) |
 | `token_file` | Path to the access-token file; relative paths resolve against the monitor folder |
 | `sessions_limit` | How many recent sessions the sidebar lists (default `50`) |
-| `tag_pairs` | Open/close tag pairs that define what counts as an injection — no defaults are hard-coded |
-| `side_width`, `indent_px`, `expand` | UI layout and default expansion preferences |
+| `tag_pairs` | Open/close text pairs that define what counts as an injection block. Defaults cover the built-in Hermes system-prompt blocks; memory-provider tags (e.g. `<memory-context>`) are added per provider |
+| `side_width`, `indent_px`, `expand` | UI settings |
 
 ## Autostart (optional, systemd)
 
@@ -77,10 +77,6 @@ The unit assumes the monitor lives in `~/inject-monitor` — adjust `ExecStart`/
 - Every data API request requires the token; without it the API answers `401` (the `/api/ping` health check is the only exempt endpoint).
 - The database is opened read-only — the monitor never writes to your Hermes data.
 - `config.json` and the token file are git-ignored; never commit them.
-
-## Windows helper
-
-`run/inject-monitor.bat` starts the monitor inside WSL from Windows (edit the path inside if your installation differs).
 
 ## Documentation
 

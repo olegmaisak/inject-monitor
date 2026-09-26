@@ -17,29 +17,39 @@
   },
   "tag_pairs": [
     {
-      "name": "memory-context",
-      "open": "<memory-context>",
-      "close": "</memory-context>"
+      "name": "Hermes system prompt",
+      "open": "You run on Hermes Agent (by Nous Research)",
+      "close": ""
     },
     {
-      "name": "turn-memory-recall",
-      "open": "<turn-memory-recall>",
-      "close": "</turn-memory-recall>"
+      "name": "<available_skills>",
+      "open": "<available_skills>",
+      "close": "</available_skills>"
     },
     {
-      "name": "fresh-intersession-memory",
-      "open": "<fresh-intersession-memory",
-      "close": "</fresh-intersession-memory>"
+      "name": "SOUL.md",
+      "open": "# Hermes Agent Persona",
+      "close": ""
     },
     {
-      "name": "recent-intersession-memory",
-      "open": "<recent-intersession-memory",
-      "close": "</recent-intersession-memory>"
+      "name": "MEMORY.md",
+      "open": "MEMORY (your personal notes)",
+      "close": ""
     },
     {
-      "name": "tool-memory-recall",
-      "open": "<tool-memory-recall>",
-      "close": "</tool-memory-recall>"
+      "name": "USER.md",
+      "open": "USER PROFILE (who the user is)",
+      "close": ""
+    },
+    {
+      "name": "Hermes runtime environment",
+      "open": "# Hermes runtime environment",
+      "close": "<!-- End Hermes runtime environment -->"
+    },
+    {
+      "name": "Conversation started",
+      "open": "Conversation started:",
+      "close": ""
     }
   ],
   "sessions_limit": 50
