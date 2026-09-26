@@ -100,7 +100,7 @@ step.
 - **Center timeline** — expandable message blocks per role:
   - `🧩 System prompt` — collapsed by default; sections with labelled injection blocks.
   - `👤 User` — text with nested `🧠` injection blocks.
-  - `🤖 Assistant` — response text, optional `💭 Reasoning`, tool-call blocks.
+  - `👾 Assistant` — response text, optional `💭 Reasoning`, tool-call blocks.
   - `🔧 Tool call` / `🔧 Tool result` — collapsed on open; details expand inside.
   - Injections render as `<details class="inj">` with full block text in `<pre>`.
 
