@@ -1,297 +1,300 @@
-# Inject Monitor — Архитектура
+# Inject Monitor — Architecture
 
-> Диагностический веб-интерфейс: показывает, что Hermes реально отправляет в LLM,
-> включая инжекты памяти (agentmemory, MEMORY.md, USER PROFILE, SOUL), чтобы сопоставить
-> запрос Олега ↔ то, что видит агент.
+Author: Oleg Maisak (idea & vibe coding) · Lex (coding agent)
+
+> Web UI for diagnosing harness & memory injections into LLM requests of Hermes Agent sessions —
+> shows what Hermes actually sends to the LLM, including injected context (agentmemory,
+> MEMORY.md, USER PROFILE, SOUL), to map the user's query ↔ what the agent sees.
 >
-> Статус: **v0.28.1 (2026-09-21)** — удалена привязка к agentmemory (прокси был мёртвым
-> кодом; монитор полностью provider-independent, парсинг инжектов только из state.db
-> по тегам, без внешних сервисов памяти).
-> В v0.26.0: вынос среды Hermes из кода в config.json + config.default.json, мастер
-> настройки в одно окно, честный счётчик инжектов в списке сессий, эмодзи ⬇️, иконки
-> (logo = icon-light-d1d5dd, favicon = icon-blue-75a2d8), починен Default expansion.
-> Инкремент версий — по скиллу `versioning-for-all`: vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD).
-> Стек: Python stdlib + vanilla JS, ноль внешних зависимостей.
+> Status: **v0.32.1 (2026-09-26)** — current release; full release history in
+> CHANGELOG.md. Earlier milestones: v0.28.1 — agentmemory binding removed (the proxy
+> was dead code; monitor is fully provider-independent, injection parsing only from
+> state.db by tag pairs, no external memory services); v0.26.0: environment settings extracted from code into config.json + config.default.json,
+> single-window setup wizard, honest injection count in session list, emoji ⬇️, icons
+> (logo = icon-light-d1d5dd, favicon = icon-blue-75a2d8), Default expansion fixed.
+> Version increments follow the `versioning-for-all` skill: vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD).
+> Stack: Python stdlib + vanilla JS, zero external dependencies.
 
 ---
 
-## 1. Цель и назначение
+## 1. Purpose
 
-Олег (vibecoder) хочет диагностический инструмент, который в реальном времени показывает:
+A diagnostic tool that shows in real time:
 
-1. **Что именно ушло в LLM** по каждому запросу (полный текст с инжектами).
-2. **Какие блоки — харнессовские инжекты**, а какие — память (agentmemory).
-3. **Где эти инжекты находятся** в system prompt и в теле пользовательских запросов.
-4. **Diff между ходами** — что изменилось в инжектируемой памяти от шага к шагу.
-5. **Сопоставление с источником**: какой фрагмент agentmemory реально вернулся на запрос (прокси в REST agentmemory).
+1. **What exactly was sent to the LLM** for each request (full text with injections).
+2. **Which blocks are harness injections** and which are memory (agentmemory).
+3. **Where these injections sit** in the system prompt and in user message bodies.
+4. **Diff between turns** — what changed in the injected memory from one step to the next.
+5. **Source mapping**: which agentmemory fragment was actually returned for the query (via REST agentmemory proxy).
 
-Сценарий использования: открыть параллельно Hermes и этот монитор, и сопоставлять
-«в каком запросе / какой инжект» видит агент.
+Usage scenario: open Hermes and this monitor side by side, mapping
+"in which request / which injection" the agent sees.
 
 ---
 
-## 2. Ключевое техническое открытие (почему так мало кода)
+## 2. Key Technical Insight (why so little code)
 
-Hermes **уже хранит точные «байтовые» копии того, что уходит в LLM** — это критично и избавляет
-от перехвата трафика / прокси.
+Hermes **already stores byte-fidelity copies of what is sent to the LLM** — this is critical and eliminates
+the need for traffic interception / proxies.
 
-### 2.1 `~/.hermes/state.db` (SQLite, основной источник)
+### 2.1 `~/.hermes/state.db` (SQLite, primary source)
 
-- **Таблица `messages`** — вся переписка сессии. Колонка **`api_content`** — это **единственный
-  источник истины**: точный текст *того, что реально отправлено в API*, когда он отличается
-  от «чистого» content (т.е. когда был инжект). В коде Hermes это называется "byte-fidelity
+- **Table `messages`** — full session conversation. Column **`api_content`** is the **single
+  source of truth**: the exact text *that was actually sent to the API*, when it differs
+  from the "clean" `content` (i.e., when an injection occurred). In the Hermes codebase this is called a "byte-fidelity
   sidecar" (`agent/turn_context.py::compose_user_api_content`, `hermes_state.py`).
-  - `content` — «чистый» (без инжектов) текст сообщения пользователя;
-  - `api_content` — то же самое + приклеенные инжекты (`\n\n<memory-context>...</memory-context>` и др.);
-  - инжект и есть **разница `api_content` minus `content`** для user-сообщений.
-- **Таблица `sessions`** — метаданные сессий + `system_prompt_hash` (указатель на системный промпт).
-- **Таблица `system_prompts`** — полный системный промпт по hash. Это 72K+ символов:
-  Persona, SOUL, codex, список скиллов, MEMORY.md (📜), USER PROFILE (👤), `<agentmemory-context>` (🧠) и т.д.
+  - `content` — "clean" (no injections) user message text;
+  - `api_content` — same + appended injections (`\n\n<memory-context>...</memory-context>` etc.);
+  - the injection is precisely the **difference `api_content` minus `content`** for user messages.
+- **Table `sessions`** — session metadata + `system_prompt_hash` (pointer to system prompt).
+- **Table `system_prompts`** — full system prompt by hash. 72K+ characters:
+  Persona, SOUL, codex, skill list, MEMORY.md (📜), USER PROFILE (👤), `<agentmemory-context>` (🧠), etc.
 
-### 2.2 Когда/как инжектится память (что мы выяснили из кода)
+### 2.2 When/how memory is injected (what was discovered from the code)
 
-- **System prompt собирается ОДИН раз на сессию** и держится **байт-стабильным** всю сессию
-  (требование промпт-кэша). Значит агентmemory-контекст «проекта» внутри system prompt
-  **не меняется** в течение сессии, пока не произойдёт компрессия/новая сессия.
-- **При каждом запросе пользователя** — дополнительный инжект в ТЕЛО сообщения:
-  1. prefetch из agentmemory (`/agentmemory/smart-search` по запросу Олега), топ-5 наблюдений;
-  2. оборачивается в `<memory-context>...</memory-context>`;
-  3. приклеивается к API-копии пользовательского сообщения (`api_content`).
-- **Триггер:** инжект происходит **в момент старта хода** (turn), на основе **последнего текста
-  пользователя**, и затем **неизменен на протяжении всего ответа агента** (включая tool calls) —
-  потому что все последующие вызовы LLM в том же ходе используют **один и тот же** api_content
-  + ту же цепочку tool-результатов. НО: если агент *пишет в память* (memory_save/memory_recall)
-  и делает потом новый LLM-запрос внутри того же хода, память может измениться — но сам
-  `api_content` (то, что «запрос пользователя») не пересчитывается.
-- Это отвечает на вопрос Олега: **«инжект только в момент запроса юзера?»** — Да, для
-  харнесс-инжекта в `api_content`; **«пока агент отвечает, инжект неизменен?»** — Да, в рамках
-  одного хода. Только между ходами он пересчитывается под новый запрос. (Детали: `agent/turn_context.py`,
+- **System prompt is assembled ONCE per session** and stays **byte-stable** for the entire session
+  (required for prompt caching). This means the agentmemory "project" context inside the system prompt
+  **does not change** during a session, until a compression/new session occurs.
+- **On each user request** — an additional injection into the message body:
+  1. prefetch from agentmemory (`/agentmemory/smart-search` based on the user's query), top-5 observations;
+  2. wrapped in `<memory-context>...</memory-context>`;
+  3. appended to the API copy of the user message (`api_content`).
+- **Trigger:** injection happens **at the start of a turn**, based on the **latest user
+  text**, and then remains **unchanged for the agent's entire response** (including tool calls) —
+  because all subsequent LLM calls in the same turn use the **same** `api_content`
+  + the same chain of tool results. However: if the agent *writes to memory* (memory_save/memory_recall)
+  and then makes another LLM call within the same turn, memory may change — but the
+  `api_content` itself (the "user request") is not recomputed.
+- This answers the question: **"injection only at the moment of user request?"** — Yes, for
+  harness injection in `api_content`; **"while the agent responds, injection is unchanged?"** — Yes, within
+  a single turn. Only between turns is it recomputed for the new request. (Details: `agent/turn_context.py`,
   `agent/memory_manager.py::build_memory_context_block`, `agent/system_prompt.py`.)
 
-### 2.3 `~/.agentmemory/data/state_store.db` (agentmemory, источник «памяти»)
+### 2.3 `~/.agentmemory/data/state_store.db` (agentmemory, memory source)
 
-- REST-сервер на `:3111` (REST/MCP HTTP). Используем прокси для сопоставления «что искалось ↔ что нашлось».
-- Эндпоинт поиска: `POST /agentmemory/search {query, limit}` → `{results:[{observation, combinedScore}]}`.
-- Не читаем его БД напрямую (формат iii-engine), ходим через официальный REST — это надёжнее.
+- REST server at `:3111` (REST/MCP HTTP). Used via proxy to map "what was searched ↔ what was found."
+- Search endpoint: `POST /agentmemory/search {query, limit}` → `{results:[{observation, combinedScore}]}`.
+- Not reading its DB directly (iii-engine format), going through the official REST — more reliable.
 
 ---
 
-## 3. Компоненты
+## 3. Components
 
 ```
 ~/inject-monitor/
-├── monitor.py            # Backend: HTTP-сервер, чтение state.db (read-only), REST-прокси, токен
+├── monitor.py            # Backend: HTTP server, state.db reader (read-only), REST proxy, token
 ├── static/
-│   └── index.html        # Frontend: одна страница, vanilla JS, без сборки
-├── ARCHITECTURE.md       # этот файл
+│   └── index.html        # Frontend: single page, vanilla JS, no build step
+├── ARCHITECTURE.md       # this file
 ```
 
 ### 3.1 Backend (`monitor.py`)
 
-- **Стек:** Python stdlib `http.server.ThreadingHTTPServer` — ноль зависимостей, запуск через `python3`.
-- **Чтение БД:** `sqlite3` с `file:...?mode=ro` (read-only) — не мешает живому Hermes, WAL не блокирует.
-- **Авторизация:** токен в `inject-monitor-token` **в папке монитора** (дефолт,
-  генерируется при первом старте, chmod 600; миграция копирует значение из легаси
-  `~/.hermes/inject-monitor-token`, если оно ещё там). Клиент передаёт `X-Auth-Token`
-  или `?token=`. Статика свободная (без данных), API — за токеном. Файл токена НЕ
-  отдаётся по HTTP никогда: `_static()` серверит только содержимое `static/`, любые
-  пути вне него — 401/404; в index.html подставляется только ПУТЬ к файлу
-  (`__TOKEN_FILE_PATH__`) для инструкции на gate, но не значение токена.
-- **Порт:** `8092` (не пересекается: Hermes 3111/3113, Директриса 8081).
-- **Endpoints (все JSON):**
-  - `GET /` , `GET /index.html` — статика (favicon.png, logo.png — свободно).
-  - `GET /api/ping` — health (без токена).
-  - `GET /api/status` — статус сервера и БД: `{version, config_exists, db:{path, exists,
-    sessions, error}}`; драйвер мастера настройки (за токеном).
-  - `GET /api/sessions[?include=<id>]` — список последних `sessions_limit` сессий
-    (config, дефолт 50), desc по последней активности, с числом инжектов (фактические
-    инжекты по сессии, парсером — см. 3.5). Открытая сессия, выпавшая из лимита,
-    добавляется параметром `include` (без дублей).
-  - `GET /api/sessions/<id>/messages` — сообщения сессии + system prompt (структурирован).
-  - `GET /api/token` — показать текущий токен.
-  - `POST /api/test-db` `{path}` — проверка читаемости пути state.db (мастер настройки);
-    возвращает `{ok, path, sessions, error}`.
-  - `POST /api/server` `{action: "stop"|"restart"}` (v0.32.0) — управление сервером из
-    UI (кнопки в Settings → Server, требуют токен). `stop`: ответ отправляется, затем
-    сервер завершается (threading.Timer + `HTTP_SERVER.shutdown()` + `os._exit(0)` —
-    последующий запуск только вручную из терминала). `restart`: ответ отправляется,
-    затем процесс перезапускается **через `os.execv(sys.executable, [python,
-    monitor.py, --port])`** — образ процесса заменяется, сокет закрывается
-    (non-inheritable), двойного биндинга нет. Глобальные `HTTP_SERVER`/`RUN_PORT`
-    заполняются в `main()`.
-  - `GET /api/am-search` — **удалён в v0.28.1** (монитор не зависит от провайдера памяти).
-  - `GET /api/config` / `PUT /api/config` — чтение/запись `config.json`. PUT начинает с
-    текущего содержимого файла и накладывает переданные ключи — **неизвестные/кастомные
-    ключи сохраняются**, нет «затирания». Валидация: port 1..65535, side_width 200..2000,
-    indent_px 0..120, db_path/token_file — непустые строки, agentmemory_url — строка (может быть пустой),
-    `settings_open` — массив id блоков Settings (фильтр по `SETTINGS_BLOCK_IDS`).
+- **Stack:** Python stdlib `http.server.ThreadingHTTPServer` — zero dependencies, run via `python3`.
+- **DB access:** `sqlite3` with `file:...?mode=ro` (read-only) — does not interfere with a live Hermes,
+  does not block WAL.
+- **Authorization:** token in `inject-monitor-token` **in the monitor's folder** (default,
+  generated on first start, chmod 600; migration copies the value from legacy
+  `~/.hermes/inject-monitor-token` if it's still there). Client sends `X-Auth-Token`
+  or `?token=`. Static files are unrestricted (no data), API is token-protected. The token file is NEVER
+  served over HTTP: `_static()` only serves content from `static/`, paths
+  outside it return 401/404; `index.html` only receives the PATH to the file
+  (`__TOKEN_FILE_PATH__`) for the gate instructions, not the token value.
+- **Port:** `8092` (no conflicts: Hermes 3111/3113, Direktrisa 8081).
+- **Endpoints (all JSON):**
+  - `GET /` , `GET /index.html` — static (favicon.png, logo.png — unrestricted).
+  - `GET /api/ping` — health (no token).
+  - `GET /api/status` — server and DB status: `{version, config_exists, db:{path, exists,
+    sessions, error}}`; setup wizard driver (token-protected).
+  - `GET /api/sessions[?include=<id>]` — list of latest `sessions_limit` sessions
+    (config, default 50), desc by last activity, with per-session injection count
+    (actual injections, parsed — see 3.5). An open session that falls outside the limit
+    is added via the `include` parameter (no duplicates).
+  - `GET /api/sessions/<id>/messages` — session messages + system prompt (structured).
+  - `GET /api/token` — show current token.
+  - `POST /api/test-db` `{path}` — check readability of a state.db path (setup wizard);
+    returns `{ok, path, sessions, error}`.
+  - `POST /api/server` `{action: "stop"|"restart"}` (v0.32.0) — server management from
+    UI (buttons in Settings → Server, require token). `stop`: response sent, then
+    server shuts down (threading.Timer + `HTTP_SERVER.shutdown()` + `os._exit(0)` —
+    subsequent start only manual from terminal). `restart`: response sent,
+    then process restarts **via `os.execv(sys.executable, [python,
+    monitor.py, --port])`** — process image replaced, socket closed
+    (non-inheritable), no double binding. Global `HTTP_SERVER`/`RUN_PORT`
+    are populated in `main()`.
+  - `GET /api/am-search` — **removed in v0.28.1** (monitor is memory-provider independent).
+  - `GET /api/config` / `PUT /api/config` — read/write `config.json`. PUT starts from the
+    current file content and merges the passed keys — **unknown/custom
+    keys are preserved**, no "wipe-out". Validation: port 1..65535, side_width 200..2000,
+    indent_px 0..120, db_path/token_file — non-empty strings, agentmemory_url — string (can be empty),
+    `settings_open` — array of Settings block ids (filtered by `SETTINGS_BLOCK_IDS`).
 
-**config.json** (рядом с monitor.py) — все environment-зависимые параметры:
-- `port` (HTTP-порт), `db_path` (путь к state.db Hermes, `~` раскрывается), `token_file`
-  (файл токена доступа; относительный путь = папка монитора — дефолт
-  `inject-monitor-token` рядом с monitor.py, т.к. при установке папка агента ещё
-  неизвестна), `agentmemory_url` (REST agentmemory, пусто = выключено),
-  `sessions_limit` (сколько последних сессий в списке, дефолт 50), `side_width`,
-  `indent_px` (отступ уровня × px), `expand` (default-expansion флаги), `tag_pairs`
-  (список `{name, open, close}` — порядок = порядок рендера/сохранения;
-  в UI переставляется ↑↓), `settings_open` (какие блоки Settings развёрнуты:
-  массив id из `SETTINGS_BLOCK_IDS`; дефолт `["server"]` — открыт только Server).
-- Значения по умолчанию описаны в **config.default.json** (источник для новой установки):
-  стандартные пути Hermes (`~/.hermes/state.db`, `~/.hermes/inject-monitor-token`),
-  `http://localhost:3111`, 5 стандартных memory-пар тегов агент-плагина. При первом
-  запуске config.json создаётся из него (fallback — встроенные BUILTIN_DEFAULTS в
-  monitor.py). Все пути читаются пер-запросно с кэшем 3 с; применение
-  db_path/token_file/agentmemory_url — без рестарта (порт — по рестарту).
+**config.json** (next to monitor.py) — all environment-dependent parameters:
+- `port` (HTTP port), `db_path` (path to Hermes state.db, `~` is expanded), `token_file`
+  (access token file; relative path = monitor folder — default
+  `inject-monitor-token` next to monitor.py, since at install time the agent folder is
+  still unknown), `agentmemory_url` (REST agentmemory, empty = disabled),
+  `sessions_limit` (how many recent sessions in the list, default 50), `side_width`,
+  `indent_px` (indent level × px), `expand` (default-expansion flags), `tag_pairs`
+  (list of `{name, open, close}` — order = render/save order;
+  reorderable in UI via ↑↓), `settings_open` (which Settings blocks are expanded:
+  array of ids from `SETTINGS_BLOCK_IDS`; default `["server"]` — only Server open).
+- Default values are defined in **config.default.json** (source for fresh installs):
+  standard Hermes paths (`~/.hermes/state.db`, `~/.hermes/inject-monitor-token`),
+  `http://localhost:3111`, 5 standard memory tag pairs for agent plugin. On first
+  launch config.json is created from it (fallback — built-in BUILTIN_DEFAULTS in
+  monitor.py). All paths are read per-request with a 3s cache; applying
+  db_path/token_file/agentmemory_url — without restart (port requires restart).
 
-### 3.2 Извлечение инжекта из `api_content` / `content`
+### 3.2 Extracting injections from `api_content` / `content`
 
-- Инжекты распознаются **только по парам тегов из `config.json`** (`tag_pairs`):
-  `{name, open, close}`. Никаких жёстко зашитых маркеров — нет пар в конфиге —
-  нет инжектов. Универсальность: не зависит от раскладки промпта агента.
-- Парсинг запускается для **каждой роли** (user/assistant/tool):
-  - для user/assistant — из `api_content` (точный текст, ушедший в LLM, минус
-    видимый `content`-префикс);
-  - для tool — из `content` (результаты инструмента, там живут инжекты
-    `<tool-memory-recall>`), т.к. в `api_content` их нет.
-- Вложенность: пара может содержать другие пары; рендер плоский «parent > child».
-- Пары могут не иметь `close` (no-close): блок идёт от opener до следующего
-  opener любой пары или до конца текста.
-- `display_kind` (из `messages` в state.db) передаётся в UI для метки рядом с ролью.
+- Injections are recognized **only by tag pairs from `config.json`** (`tag_pairs`):
+  `{name, open, close}`. No hardcoded markers — no pairs in config —
+  no injections. Universality: doesn't depend on the agent's prompt layout.
+- Parsing runs for **each role** (user/assistant/tool):
+  - for user/assistant — from `api_content` (exact text sent to the LLM, minus
+    the visible `content` prefix);
+  - for tool — from `content` (tool results, where injections
+    `<tool-memory-recall>` live), since `api_content` doesn't have them.
+- Nesting: a pair may contain other pairs; render is flat "parent > child".
+- Pairs may lack `close` (no-close): block goes from opener to the next
+  opener of any pair or to end of text.
+- `display_kind` (from `messages` in state.db) is passed to the UI for a role label.
 
-### 3.3 Фильтр типов записей
+### 3.3 Record type filter
 
-- Панель чекбоксов над содержимым сессии: 📥 только с инжектами / 👤 User /
+- Checkbox panel above session content: 📥 injections only / 👤 User /
   👾 Assistant / 🔧 Tool calls / 🔧 Tool results / 🧩 System prompt.
-- **Все чекбоксы включены по умолчанию** (показ всех типов); «только с инжектами» —
-  жёсткий фильтр, скрывает всё без распознанных инжектов.
-- Реализация: у каждой записи `data-type` и `data-inj`; `applyFilter()` переключает
-  `display` без перезагрузки.
+- **All checkboxes enabled by default** (show all types); "injections only" —
+  strict filter, hides everything without detected injections.
+- Implementation: each record has `data-type` and `data-inj`; `applyFilter()` toggles
+  `display` without reloading.
 
-### 3.4 Отображение инжектов (полный текст)
+### 3.4 Injection display (full text)
 
-- Каждый инжект — `<details class="inj">`: в свёрнутом виде заголовок
-  («🧠 memory-context, N chars — клик, чтобы развернуть полностью»), по клику
-  разворачивается **полный текст** блока (`<pre>` с `white-space:pre-wrap`).
-  Полный текст всегда есть в DOM — ничего не обрезается.
+- Each injection is a `<details class="inj">`: collapsed header
+  ("🧠 memory-context, N chars — click to expand fully"), on click
+  expands **the full block text** (`<pre>` with `white-space:pre-wrap`).
+  Full text is always in the DOM — nothing is truncated.
 
 ### 3.4 Frontend (`static/index.html`)
 
-- **Раскладка:** левая панель — список сессий (открытый, отсортирован по последней активности,
-  с датами-разделителями «Сегодня/Вчера/дата»); правая — содержимое выбранной сессии.
-- **Иерархия (Олег просил «блоги свёрнуты, раскрываются по веткам, крупные ветки — emoji»):**
-  - `🧩 System prompt` — свёрнут; внутри `details.sec` по секциям: 🎭 Persona, 🦉 Личность,
-    📖 codex, 📜 MEMORY, 👤 USER, 🧠 agentmemory-context, 🎯 Skills, 🛠️ Tools, ⏰ и т.д.
-  - каждая секция — отдельный `<details>`, раскрывается точечно.
-  - `👤 Пользователь` — текст + вложенный блок инжектов `🧠 memory-context` (клик — развернуть).
-  - `🤖 Ассистент` / `🗑️ tool call` (🛠️ с аргументами) / `🔧 результат tool` — свёрнуты.
-  - diff-бейдж в заголовке хода показывает статус изменения инжекта.
-- **Живое обновление:** кнопка «⟳ Обновить» и переключатель «авто» (поллинг 5с).
-  **Точечное обновление (v0.32.0):** существующие DOM-узлы не трогаются — новые
-  сообщения аппендятся внизу (`mergeMessages()` → `incrementalRender()` по
-  `RENDERED = {sid, ids, sysHash}`), chips и system prompt обновляются in place
-  (sysprompt — только при смене hash), фильтр переприменяется; ⟳ Refresh для
-  ОТКРЫТОЙ сессии идёт тем же merge-путём (`loadSession` сравнивает id). Полный
-  ре-рендер остаётся только при переключении сессии. Сайдбар при перестройке
-  сохраняет `scrollTop`. renderMain() пересоздаёт панель #top — класс `on` кнопки
-  Auto восстанавливается после каждого рендера (`window._auto`).
-- Без фреймворков → открывается и как файл, и через `http://…`.
-- **Онбординг токена**: gate-инструкция — 3 структурированных шага с реальным путём
-  (подставляется сервером): 1) токен уже сгенерирован и сохранён в файл
-  `<monitor-folder>/inject-monitor-token`; 2) скопируйте файл токена в папку
-  ИИ-агента (напр. `~/.hermes/`), чтобы агент тоже мог им пользоваться;
-  3) скопируйте токен из файла и вставьте в поле ниже. Плюс tip про стартовый URL
-  с `?token=` (браузер запоминает). Enter в поле отправляет форму. Причина токена:
-  session-данные чувствительны, токен отсекает другие локальные
-  процессы/пользователей; трение минимально — браузер запоминает токен.
+- **Layout:** left panel — session list (sorted by latest activity,
+  with date separators "Today/Yesterday/date"); right panel — selected session content.
+- **Hierarchy (collapsed blogs, expand by branches, large branches with emoji):**
+  - `🧩 System prompt` — collapsed; inside `details.sec` by sections: 🎭 Persona, 🦉 Personality,
+    📖 codex, 📜 MEMORY, 👤 USER, 🧠 agentmemory-context, 🎯 Skills, 🛠️ Tools, ⏰ etc.
+  - each section is a separate `<details>`, expands selectively.
+  - `👤 User` — text + nested injection block `🧠 memory-context` (click to expand).
+  - `🤖 Assistant` / `🗑️ tool call` (🛠️ with arguments) / `🔧 tool result` — collapsed.
+  - diff badge in the turn header shows injection change status.
+- **Live update:** "⟳ Refresh" button and "auto" toggle (5s polling).
+  **Incremental update (v0.32.0):** existing DOM nodes are untouched — new
+  messages are appended at the bottom (`mergeMessages()` → `incrementalRender()` by
+  `RENDERED = {sid, ids, sysHash}`), chips and system prompt are updated in place
+  (sysprompt — only on hash change), filter is re-applied; ⟳ Refresh for
+  an OPEN session uses the same merge path (`loadSession` compares ids). Full
+  re-render only remains on session switch. Sidebar preserves `scrollTop` on rebuild.
+  `renderMain()` recreates the `#top` panel — button `on` class for Auto
+  is restored after every render (`window._auto`).
+- No frameworks → works both as a file and via `http://…`.
+- **Token onboarding:** gate instructions — 3 structured steps with the real path
+  (injected by server): 1) token already generated and saved to
+  `<monitor-folder>/inject-monitor-token`; 2) copy the token file to the
+  AI agent's folder (e.g. `~/.hermes/`) so the agent can also use it;
+  3) copy the token from the file and paste into the field below. Plus tip about the
+  startup URL with `?token=` (browser remembers). Enter in the field submits the form. Token rationale:
+  session data is sensitive, the token blocks other local
+  processes/users; friction is minimal — browser remembers the token.
 
-### 3.5 Счётчик инжектов в списке сессий и мастер настройки
+### 3.5 Injection counter in session list and setup wizard
 
-- **Счётчик** (бейдж «⬇️ N inj.`) — это ЧИСЛО ВСЕХ инжектов по сессии, посчитанное
-  тем же парсером, что рисует блоки внутри сессии: топ-уровневые блоки + их вложенные
-  дети, по каждому активному сообщению (api_content всех ролей + content для tool)
-  плюс system prompt. Один инжект в одном сообщении = один, несколько = несколько.
-  Кэш по сессии: `session_id -> ((сигнатура пар, max(id) сообщений, count(active)),
-  count)`; пересчитываются только изменившиеся сессии (холодный старт ~0.02-0.8 с,
-  автообновление не тормозит). Проверено: сессия 20260919_235801_93d3d2 — 85 inj.,
-  сходится с парсером на всех 200 сессиях.
-- **Мастер настройки (одно окно)** появляется автоматически, когда конфиг не настроен,
-  пути нет или БД не читается: сервер даже без БД стартует (не падает); UI по
-  `GET /api/status` показывает оверлей-мастер: путь БД (+ кнопка Test →
-  `POST /api/test-db`), token file, agentmemory URL, порт, «Save & continue». После
-  сохранения — повторный status → список сессий. Пары тегов редактируются позже в
+- **Counter** (badge "⬇️ N inj.") — the total number of injections for the session, computed by
+  the same parser that renders blocks inside the session: top-level blocks + their nested
+  children, for each active message (api_content of all roles + content for tool)
+  plus system prompt. One injection in one message = one, multiple = as many as there are.
+  Per-session cache: `session_id -> ((pair signature, max(id) of messages, count(active)),
+  count)`; only changed sessions are recomputed (cold start ~0.02-0.8 s,
+  auto-refresh doesn't lag). Verified: session 20260919_235801_93d3d2 — 85 inj.,
+  matches parser across all 200 sessions.
+- **Setup wizard (single window)** appears automatically when the config is not set up,
+  the path is missing, or the DB is unreadable: the server starts even without a DB (no crash);
+  the UI shows a wizard overlay based on `GET /api/status`: DB path (+ Test button →
+  `POST /api/test-db`), token file, agentmemory URL, port, "Save & continue". After
+  saving — re-check status → session list. Tag pairs are edited later in
   ⚙ Settings.
 
-### 3.6 Иконки и Default expansion
+### 3.6 Icons and Default expansion
 
-- Иконки: рядом с заголовком «Inject Monitor» — `static/logo.png` (icon-light-d1d5dd.png),
-  светлая, читается на тёмной панели; `favicon` — `static/favicon.png` (icon-black.png,
-  чёрная — синяя бледно читалась на вкладке). Эмодзи инжекта — **⬇️** (стрелка вниз =
-  «вброшено в запрос»), везде вместо 📥.
-- Default expansion: вложенным `<details>` (Tool call details, Tool result details,
-  💭 Reasoning, inj-блоки) ставится **атрибут `open`** (класс `open` не открывает
-  HTML`<details>`; этот приём работает только для div-сообщений). EXPAND и indent
-  загружаются из `/api/config` при старте страницы (раньше — только при открытии
-  Settings, из-за чего сохранённые состояния игнорировались на загрузке). Раскрытие
-  вложенных элементов работает и при свёрнутом родителе (атрибут в DOM не зависит
-  от видимости родителя).
+- Icons: next to the "Inject Monitor" heading — `static/logo.png` (icon-light-d1d5dd.png),
+  light, readable on a dark panel; `favicon` — `static/favicon.png` (icon-black.png,
+  black — blue was pale on the tab). Injection emoji — **⬇️** (down arrow =
+  "injected into the request"), everywhere instead of 📥.
+- Default expansion: nested `<details>` (Tool call details, Tool result details,
+  💭 Reasoning, inj-blocks) get the **`open` attribute** (class `open` does not expand
+  HTML `<details>`; this trick only works for div-messages). EXPAND and indent
+  are loaded from `/api/config` on page start (previously — only when opening
+  Settings, so saved states were ignored on load). Nested element
+  expansion works even when the parent is collapsed (DOM attribute doesn't depend
+  on parent visibility).
 
 ---
 
-## 4. Согласованные решения (по требованиям Олега)
+## 4. Agreed Decisions
 
-1. **Src-источник:** только `state.db` (read-only) + REST agentmemory. Никакого перехвата трафика в MVP.
-2. **Левая панель** вместо выпадающего списка — быстрое переключение между сессиями.
-3. **Иерархические свёрнутые блоки** с emoji по типам; раскрытие только нужной ветки.
-4. ~~**Diff** между ходами~~ — **удалён** по решению Олега («не вижу в нём смысла»).
-5. **Русский интерфейс** (все UI-тексты, кроме технических маркеров кода).
-6. **Портативность:** stdlib-only backend, vanilla JS frontend, ноль npm/pip-зависимостей.
-7. **Безопасность:** токен-авторизация по умолчанию (Олег требует авторизацию во всех компонентах),
-   bind на 127.0.0.1.
-8. **.bat на рабочем столе** для запуска из Windows (по правилам Лекса).
-9. **Порядок блоков панели Settings (рекомендация, v0.32.0):** при дополнении панели
-   Настроек держать **важное/часто используемое выше**, а редкие настройки
-   («один раз настроил и забыл») — ниже. Текущий порядок: Server / Data source /
+1. **Data source:** only `state.db` (read-only) + REST agentmemory. No traffic interception in MVP.
+2. **Left panel** instead of a dropdown — quick session switching.
+3. **Hierarchical collapsible blocks** with emoji per type; expand only the needed branch.
+4. ~~**Diff between turns**~~ — **removed** (deemed unnecessary).
+5. **Russian interface** (all UI texts, except technical code markers).
+6. **Portability:** stdlib-only backend, vanilla JS frontend, zero npm/pip dependencies.
+7. **Security:** token authorization by default (required for all components),
+   bind to 127.0.0.1.
+8. **.bat on the desktop** for launching from Windows (per convention).
+9. **Settings panel block order (recommendation, v0.32.0):** when adding to
+   Settings, keep **important/frequently used** above, and rare settings
+   ("set once and forget") below. Current order: Server / Data source /
    Injection trigger tag pairs / Default expansion / Session list / Message
-   indentation (авторский блок — последним, вне списка блоков). Состояние
-   свёрнутости блоков сохраняется в конфиге (`settings_open`); дефолт — все
-   свёрнуты, кроме Server.
+   indentation (author's block — last, outside the block list). Collapse
+   state of blocks is saved in config (`settings_open`); default — all
+   collapsed except Server.
 
 ---
 
-## 5. Статус и план (2026-09-04)
+## 5. Status & Plan (2026-09-04)
 
-- [x] Backend: чтение state.db read-only, API сессий/сообщений/system prompt, токен.
-- [x] Frontend: левая панель, иерархические блоки, инжекты (полный текст по клику).
-- [x] Прокси `/api/am-search` в agentmemory REST.
-- [x] Тест API на реальных данных (133 сессии, реальные инжекты найдены).
-- [x] Тест UI в реальном Chrome (CDP): токен-гейт, рендер сессии, инжекты — OK.
-- [x] v0.10.00: фильтр чекбоксами (по умолчанию только инжекты), полный текст memory-context,
-      удалён diff (по решению Олега), исправлено «сужение» колонки (незакрытый `.mhead`).
-      Версия по `versioning-rules`: 0.01.00 (первый релиз) → +0.10 (2 фичи) → **0.10.00**.
-- [ ] .bat ярлык на рабочем столе — сделан, но не проверен Олегом.
-- [ ] Регистрация в SCRIPTS-INDEX.md — сделана.
+- [x] Backend: read-only state.db, session/message/system prompt API, token.
+- [x] Frontend: left panel, hierarchical blocks, injections (full text on click).
+- [x] Proxy `/api/am-search` to agentmemory REST.
+- [x] API test on real data (133 sessions, real injections found).
+- [x] UI test in real Chrome (CDP): token gate, session render, injections — OK.
+- [x] v0.10.00: checkbox filter (default: injections only), full memory-context text,
+      diff removed, column narrowing fixed (unclosed `.mhead`).
+      Version per `versioning-rules`: 0.01.00 (first release) → +0.10 (2 features) → **0.10.00**.
+- [ ] .bat desktop shortcut — created but not verified.
+- [ ] Registered in SCRIPTS-INDEX.md — done.
 
 ---
 
-## 6. Запуск
+## 6. Running
 
 ```bash
 cd ~/inject-monitor
 python3 monitor.py --port 8092
-# открой http://127.0.0.1:8092/ , введи токен из ~/.hermes/inject-monitor-token
+# open http://127.0.0.1:8092/ , enter token from ~/.hermes/inject-monitor-token
 ```
 
-Из Windows — через `.bat` на рабочем столе (см. раздел 4.п.8).
+From Windows — via `.bat` on the desktop (see section 4.8).
 
-Сервер запускается как **обычный фоновый процесс** (`python3 monitor.py --port 8092`),
-без systemd-юнита. Перезапуск после правок backend: `kill <pid>` и запуск заново;
-фронтенд (`static/index.html`) читается с диска при каждом запросе — рестарт не нужен.
+The server runs as a **regular background process** (`python3 monitor.py --port 8092`),
+no systemd unit. Restart after backend edits: `kill <pid>` and re-launch;
+frontend (`static/index.html`) is read from disk on each request — no restart needed.
 
 ---
 
-## 7. Известные ограничения MVP
+## 7. Known MVP Limitations
 
-- Не показывает промежуточные LLM-вызовы внутри одного tool-loop (только то, что в `state.db`).
-  Для байтовой точности каждого вызова нужен перехватчик между Hermes и провайдером (post-MVP).
-- Системный промпт — только последний hash сессии; если сессия скомпрессирована, берётся текущий.
-- agentmemory REST должен быть жив (`:3111`), иначе `/api/am-search` вернёт `{"available": false}`.
+- Does not show intermediate LLM calls within a single tool loop (only what's in `state.db`).
+  For byte-fidelity of each call, an interceptor between Hermes and the provider is needed (post-MVP).
+- System prompt — only the latest session hash; if the session was compressed, the current one is used.
+- agentmemory REST must be alive (`:3111`), otherwise `/api/am-search` returns `{"available": false}`.
