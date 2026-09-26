@@ -53,7 +53,7 @@ All runtime settings live in `config.json` next to `monitor.py`. It is **created
 | Key | Meaning |
 |---|---|
 | `port` | HTTP port (default `8092`) |
-| `host` / `--host` | Bind address (default `127.0.0.1`) |
+| `--host` | Bind address (CLI only; default `127.0.0.1`) |
 | `db_path` | Path to Hermes `state.db` (opened **read-only**) |
 | `token_file` | Path to the access-token file; relative paths resolve against the monitor folder |
 | `sessions_limit` | How many recent sessions the sidebar lists (default `50`) |
