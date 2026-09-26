@@ -316,8 +316,11 @@ JS never sets colors or display directly:
 | ✗ | error / failure |
 | ✕ | close / delete row |
 | ⬇️ | injection count badge |
-| 🧩 | tag pairs / injections |
+| 🧩 | tag pairs / injections / system prompt |
 | 👤 | user message |
+| 👾 | assistant message |
+| 🔧 | tool call / tool result |
+| 💭 | reasoning |
 | ⚙ | settings |
 | ⟳ | restart |
 | ⏹ | stop |
