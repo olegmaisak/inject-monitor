@@ -1,0 +1,46 @@
+{
+  "port": 8092,
+  "db_path": "~/.hermes/state.db",
+  "token_file": "inject-monitor-token",
+  "side_width": 320,
+  "indent_px": 14,
+  "expand": {
+    "sysprompt": false,
+    "user": true,
+    "assistant": false,
+    "toolcall": false,
+    "toolresult": false,
+    "toolcallDetails": false,
+    "toolresultDetails": false,
+    "reasoning": false,
+    "injections": false
+  },
+  "tag_pairs": [
+    {
+      "name": "memory-context",
+      "open": "<memory-context>",
+      "close": "</memory-context>"
+    },
+    {
+      "name": "turn-memory-recall",
+      "open": "<turn-memory-recall>",
+      "close": "</turn-memory-recall>"
+    },
+    {
+      "name": "fresh-intersession-memory",
+      "open": "<fresh-intersession-memory",
+      "close": "</fresh-intersession-memory>"
+    },
+    {
+      "name": "recent-intersession-memory",
+      "open": "<recent-intersession-memory",
+      "close": "</recent-intersession-memory>"
+    },
+    {
+      "name": "tool-memory-recall",
+      "open": "<tool-memory-recall>",
+      "close": "</tool-memory-recall>"
+    }
+  ],
+  "sessions_limit": 50
+}

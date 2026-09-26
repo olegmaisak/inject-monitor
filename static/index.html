@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Inject Monitor</title>
+<link rel="icon" type="image/png" href="/favicon.png">
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c212a; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950;
+    --red:#f85149; --yellow:#d29922; --purple:#a371f7; --cyan:#39c5cf;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font:12.5px/1.5 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  #wrap{display:flex;height:100vh}
+
+  /* ── Sessions sidebar (resizable) ── */
+  #side{width:320px;min-width:260px;background:var(--panel);
+    border-right:1px solid var(--border);display:flex;flex-direction:column;
+    flex-shrink:0}
+  #side h1{font-size:15px;margin:10px 12px 4px;color:var(--text)}
+  #side .sub{font-size:11px;color:var(--muted);margin:0 12px 10px}
+  #sesslist{flex:1;overflow-y:auto}
+  /* Themed scrollbars matching the dark design */
+  #sesslist, .modal-body, pre.prompt{scrollbar-width:thin;
+    scrollbar-color:var(--border) transparent}
+  #sesslist::-webkit-scrollbar,.modal-body::-webkit-scrollbar{width:8px}
+  #sesslist::-webkit-scrollbar-track{background:transparent}
+  #sesslist::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  #sesslist::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+  .sess{display:block;width:100%;text-align:left;background:none;border:none;
+    padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);color:var(--text)}
+  .sess:hover{background:var(--panel2)}
+  .sess.active{background:var(--accent);color:#fff}
+  .sess.active .sid,.sess.active .meta{color:rgba(255,255,255,.85)}
+  .sess .t{font-weight:600;font-size:12.5px;line-height:1.3;overflow:hidden;
+    text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .sess .sid{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--accent);
+    margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sess .meta{font-size:11px;color:var(--muted);margin-top:2px}
+  .sess .meta b{color:var(--green)}
+  .sess .lbl{display:inline-block;font-size:11px;border-radius:8px;padding:0 5px;
+    margin-left:4px;background:rgba(13,17,23,.55);color:#e6edf3;
+    border:1px solid rgba(255,255,255,.18)}
+  #side .foot{font-size:11px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--border)}
+
+  /* Drag handle between panels */
+  #sizer{width:6px;cursor:col-resize;flex-shrink:0;background:transparent;
+    margin-left:-4px;z-index:10}
+  #sizer:hover,#sizer.drag{background:var(--accent);opacity:.5}
+
+  /* ── Main column ── */
+  #main{flex:1;overflow-y:auto;padding:0 0 40px;min-width:0;
+    scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  #top{margin:0;padding:12px 20px 8px;position:sticky;top:0;background:var(--bg);z-index:5;
+    border-bottom:1px solid var(--border)}
+  #top .row1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  #top h2{font-size:15px;margin:0}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .chip{font-size:11px;color:var(--muted);background:var(--panel2);padding:3px 8px;border-radius:10px;
+    white-space:nowrap}
+  .chip b{color:var(--accent)}
+  .chip .mono{font-family:ui-monospace,Consolas,monospace}
+  /* Buttons in row1: breathing room from the title, consistent sizing */
+  #top .row1 button{margin-left:2px}
+  #top .row1 button:first-of-type{margin-left:auto}
+  #refresh{background:var(--purple);color:#fff;border:none;
+    padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+  #auto{background:var(--panel2);color:var(--muted);border:1px solid var(--border);
+    padding:6px 10px;border-radius:8px;cursor:pointer}
+  #auto.on{color:var(--green);border-color:var(--green)}
+  #cfgbtn{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    padding:6px 10px;border-radius:8px;cursor:pointer}
+
+  /* ── Message-type filter (inside the top panel) ── */
+  #filterbar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+    padding:8px 0 4px;font-size:12.5px}
+  #filterbar label{display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--muted)}
+  #filterbar label:has(input:checked){color:var(--text)}
+  #filterbar input{accent-color:var(--accent)}
+  #filterbar .ftitle{font-weight:600;color:var(--text);font-size:12.5px;margin-right:2px}
+
+  /* ── Collapsible blocks ── */
+  details.block{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin:10px 20px;overflow:hidden}
+  details.block>summary{background:var(--panel2);padding:10px 14px;cursor:pointer;
+    font-weight:600;font-size:13px;border-radius:10px}
+  details.block>summary .badge{font-size:11px;color:var(--muted);margin-left:8px}
+  details.block[open]>summary{border-radius:10px 10px 0 0}
+  details.block>div.body{padding:12px 14px}
+
+  details.sec>summary{background:var(--panel);padding:7px 10px;cursor:pointer;
+    font-size:12.5px;color:var(--accent);border-radius:8px}
+  details.sec>div.body{padding:8px 12px}
+
+  /* Unified disclosure marker (triangle) for every expandable element */
+  .tri{display:inline-block;width:0;height:0;border-style:solid;vertical-align:middle;
+    border-width:5px 0 5px 7px;border-color:transparent transparent transparent var(--muted);
+    margin-right:7px;transition:transform .12s ease}
+  details[open]>summary>.tri,
+  .msg.open>.mhead>.tri{transform:rotate(90deg)}
+  summary{list-style:none}
+  summary::-webkit-details-marker{display:none}
+
+  /* Same unified style for all nested blocks inside mbody */
+  .msg .mbody>details{margin:0 0 8px}
+  .msg .mbody>details:last-child{margin-bottom:0}
+
+  /* Injection block */
+  details.inj{border-left:3px solid var(--cyan);background:rgba(57,197,207,.06);
+    border-radius:0 8px 8px 0}
+  details.inj>summary{padding:8px 10px;cursor:pointer}
+  details.inj>summary .k{font-weight:600;color:var(--cyan)}
+  details.inj>summary .k .par{color:var(--muted);font-weight:400}
+  details.inj>summary .hint{font-size:11px;color:var(--muted);margin-left:8px}
+  details.inj>pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;
+    font-size:12.5px;max-height:none;overflow:visible;border-top:1px dashed var(--border)}
+
+  /* Reasoning block */
+  details.reas{border-left:3px solid var(--purple);background:rgba(163,113,247,.06);
+    border-radius:0 8px 8px 0}
+  details.reas>summary{padding:8px 10px;cursor:pointer;
+    font-weight:600;font-size:12.5px;color:var(--purple)}
+  details.reas>pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;
+    font-size:12.5px;border-top:1px dashed var(--border)}
+
+  /* Messages — single geometry for all types */
+  .msg{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin:8px 20px;overflow:hidden}
+  .msg .mhead{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;
+    background:var(--panel2)}
+  .msg .mhead .role{font-weight:700;white-space:nowrap}
+  .msg .mhead .time{font-size:11px;color:var(--muted);white-space:nowrap}
+  .msg .mhead .subj{flex:1;font-size:11px;color:var(--muted);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;text-align:right}
+  .msg .mbody{display:none;padding:10px 12px;width:100%;min-width:0;overflow:hidden}
+  .msg.open .mbody{display:block}
+  .role-user{color:var(--accent)}
+  .role-tool{color:var(--green)}
+  .msg .raw{white-space:pre-wrap;word-break:break-word;font-size:12.5px;
+    margin-bottom:12px} /* gap between message text and injection blocks */
+  .msg .mbody>details:last-child{margin-bottom:0}
+
+  pre.prompt{white-space:pre-wrap;word-break:break-word;font-size:12.5px;
+    max-height:420px;overflow:auto;background:var(--panel2);border:1px solid var(--border);
+    border-radius:8px;padding:10px;margin:0}
+
+  /* ── Settings panel (replaces the main column, like a third view) ── */
+  #settings{display:none;background:var(--bg)}
+  #settings.panel-open{display:flex;flex-direction:column;height:100%;flex:1;min-width:0}
+  #settings .head{display:flex;align-items:center;gap:10px;padding:14px 20px;
+    border-bottom:1px solid var(--border);font-weight:700;font-size:15px;
+    background:var(--panel);flex-shrink:0}
+  #settings .head .sub{font-size:11px;color:var(--muted);font-weight:400;
+    margin-left:8px}
+  #settings .body{flex:1;overflow-y:auto;padding:16px 20px;
+    scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  #settings .body::-webkit-scrollbar{width:8px}
+  #settings .body::-webkit-scrollbar-track{background:transparent}
+  #settings .body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  #settings .sec-title{font-size:12.5px;color:var(--muted);font-weight:600;
+    text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+  #settings .sec-title:first-child{margin-top:0}
+  .portrow{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px}
+  .portrow input{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:6px 8px;width:110px;
+    font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+  .note{font-size:11px;color:var(--muted)}
+  .note b{color:var(--text);font-weight:600}
+  .portrow .note{font-size:11px;color:var(--muted)}
+  .pairrow{display:grid;grid-template-columns:170px 1fr 1fr 24px 24px 24px;gap:8px;
+    margin-bottom:6px}
+  .pairrow.headrow{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px}
+  .pairrow input{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:6px 8px;font-family:ui-monospace,Consolas,monospace;font-size:12.5px;
+    width:100%}
+  .pairrow input.name{font-family:inherit;font-size:12.5px}
+  .pairrow .del,.pairrow .mv{background:var(--panel2);border:1px solid var(--border);
+    border-radius:6px;cursor:pointer;font-size:13px;width:24px;padding:0}
+  .pairrow .del{color:var(--red)}
+  .pairrow .mv{color:var(--text)}
+  #settings .foot{display:flex;gap:10px;align-items:center;padding:12px 20px;
+    border-top:1px solid var(--border);background:var(--panel);flex-shrink:0}
+  .btn{border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  #cfg-status{font-size:12.5px;margin-left:auto;align-self:center}
+
+  /* Settings collapsible blocks */
+  details.setblock{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin:0 0 12px;overflow:hidden}
+  details.setblock>summary{background:var(--panel2);padding:10px 14px;cursor:pointer;
+    font-weight:600;font-size:13px;list-style:none}
+  details.setblock>summary::-webkit-details-marker{display:none}
+  details.setblock>summary .desc{display:block;font-size:11px;color:var(--muted);
+    font-weight:400;margin-top:2px}
+  details.setblock>div.sbody{padding:12px 14px}
+  .exrow{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0;cursor:pointer}
+  .exrow input{accent-color:var(--accent)}
+  .author{font-size:11px;color:var(--muted);margin-top:18px;padding-top:10px;
+    border-top:1px solid var(--border)}
+  /* display_kind tag in a message header */
+  .msg .mhead .dk{font-size:11px;color:var(--muted);font-weight:400;white-space:nowrap}
+  /* Sidebar logo icon */
+  #side h1 .logo{width:18px;height:18px;vertical-align:-3px;margin-right:2px;border-radius:4px}
+
+  /* Gate / errors */
+  #gate{position:fixed;inset:0;background:var(--bg);display:none;z-index:50;
+    align-items:center;justify-content:center;flex-direction:column;gap:14px}
+  #gate .gate-hint{font-size:12.5px;color:var(--muted);max-width:540px;text-align:center;
+    line-height:1.55;padding:0 12px}
+  #gate .gate-hint b{color:var(--text)}
+  #gate .gate-hint ol{margin:10px auto 6px;padding-left:24px;text-align:left}
+  #gate .gate-hint li{margin:6px 0}
+  #gate code{font-family:ui-monospace,Consolas,monospace;font-size:11px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+  #gate input{border:1px solid var(--border);background:var(--panel);color:var(--text);
+    padding:10px 14px;border-radius:8px;width:320px}
+  #gate button{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer}
+  #gate-err{color:var(--red);font-size:12.5px}
+  #empty{color:var(--muted);text-align:center;padding:40px;font-size:12.5px}
+
+  /* ── Setup wizard (single window) ── */
+  #setup{position:fixed;inset:0;background:var(--bg);display:none;z-index:60;
+    align-items:center;justify-content:center}
+  #setup .card{width:600px;max-width:92vw;max-height:92vh;overflow-y:auto;background:var(--panel);
+    border:1px solid var(--border);border-radius:14px;padding:22px 26px}
+  #setup .ttl{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  #setup .ttl .logo{width:20px;height:20px;border-radius:4px}
+  #setup .lead{font-size:12.5px;color:var(--muted);margin:0 0 16px;line-height:1.5}
+  #setup .fld{margin-bottom:14px}
+  #setup .fld .fl{font-size:13px;font-weight:600;margin-bottom:2px}
+  #setup .fld .fh{font-size:11px;color:var(--muted);margin-bottom:6px}
+  #setup .fld .opt{font-size:11px;color:var(--muted);border:1px solid var(--border);
+    border-radius:8px;padding:0 6px;margin-left:6px;font-weight:400}
+  #setup .fld .row{display:flex;gap:8px}
+  #setup .fld input{flex:1;width:100%;background:var(--panel2);border:1px solid var(--border);
+    color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px}
+  #setup .fld input.narrow{flex:0 0 130px;width:130px}
+  #setup .fld .stat{font-size:12.5px;margin-top:5px;min-height:16px}
+  #setup .note{font-size:11px;color:var(--muted);margin:4px 0 14px}
+  #setup .btns{display:flex;gap:10px}
+  #setup-err{font-size:12.5px;margin-top:10px;min-height:16px}
+  /* Wide text inputs in Settings (paths, URLs) */
+  .portrow input.wide{width:420px;max-width:55%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
+  #loading{color:var(--muted);text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div style="font-size:15px">🔐 Sign in to Inject Monitor</div>
+  <div class="gate-hint"><b>Connect Inject Monitor to your AI agent —
+    confirm your access with a token.</b>
+    <ol>
+      <li>A unique access token has already been generated and saved to the file:<br>
+          <code>__TOKEN_FILE_PATH__</code></li>
+      <li>Copy the token file to your AI agent's folder (for example,
+          <code>~/.hermes/</code>) so the agent can also use it.</li>
+      <li>Copy the token from the file and paste it into the field below.</li>
+    </ol>
+    Tip: the startup console also prints a ready URL (<code>…/?token=…</code>) —
+    opening it signs you in automatically, and the browser remembers the token.</div>
+  <input id="tok" type="password" placeholder="paste the access token here" autofocus>
+  <button onclick="setToken()">Sign in</button>
+  <div id="gate-err"></div>
+</div>
+<div id="setup">
+  <div class="card">
+    <div class="ttl"><img src="/logo.png" alt="" class="logo"> Inject Monitor — initial setup</div>
+    <div class="lead">The Hermes sessions database was not found or is not readable.
+      Point the monitor to your Hermes installation. Everything stays local:
+      the database is only ever read.</div>
+    <div class="fld">
+      <div class="fl">Hermes sessions database (state.db)</div>
+      <div class="fh">Path to the read-only SQLite file written by the Hermes agent</div>
+      <div class="row"><input id="suDb" type="text" placeholder="/home/you/.hermes/state.db">
+        <button class="btn ghost" onclick="testSetupDb()">Test</button></div>
+      <div id="suDbStatus" class="stat"></div>
+    </div>
+    <div class="fld">
+      <div class="fl">Access token file</div>
+      <div class="fh">Path to the file that stores the access token (generated here on
+        first start). Relative paths resolve to the monitor's own folder. Copy the token
+        from this file into the login form, or copy the file into your AI agent's folder.</div>
+      <input id="suToken" type="text">
+    </div>
+
+    <div class="fld">
+      <div class="fl">HTTP port</div>
+      <div class="fh">Applies after restart</div>
+      <input id="suPort" type="number" min="1" max="65535" class="narrow">
+    </div>
+    <div class="note">Injection tag pairs can be edited later in ⚙ Settings.</div>
+    <div class="btns"><button class="btn primary" onclick="saveSetup()">Save &amp; continue</button></div>
+    <div id="setup-err"></div>
+  </div>
+</div>
+<div id="wrap">
+  <div id="side">
+    <h1><img src="/logo.png" alt="" class="logo"> Inject Monitor</h1>
+    <div class="sub">diagnosing harness injections into AI-agent sessions</div>
+    <div id="sesslist"><div id="loading">Loading sessions…</div></div>
+    <div class="foot" id="sidefoot"></div>
+  </div>
+  <div id="sizer" title="Drag to resize the panel"></div>
+  <div id="main"></div>
+  <div id="settings">
+    <div class="head">⚙ Settings
+      <button class="btn ghost" onclick="closeSettings()" style="margin-left:auto">✕ Close</button></div>
+    <div class="body">
+      <details class="setblock" id="set-server">
+        <summary><span class="tri"></span>Server
+          <span class="desc">Stop / restart the monitor and set the HTTP port. The port applies after restart.</span></summary>
+        <div class="sbody">
+          <div class="portrow">
+            <button class="btn ghost" onclick="stopServer()">⏹ Stop server</button>
+            <button class="btn ghost" onclick="restartServer()">⟳ Restart server</button>
+            <span id="srv-status" class="note"></span>
+          </div>
+          <div class="portrow" style="margin-top:8px"><span>Port:</span>
+            <input id="portInput" type="number" min="1" max="65535" placeholder="8092">
+            <span class="note">applies after restart</span></div>
+          <div class="note" style="margin-top:8px;line-height:1.55">After a server update the browser may serve a cached page — do a hard refresh once:<br>
+            Windows / Linux — Chrome, Edge, Opera: <b>Ctrl+F5</b> or <b>Ctrl+Shift+R</b> &nbsp;·&nbsp; Firefox: <b>Ctrl+F5</b> or <b>Ctrl+Shift+R</b><br>
+            macOS — Chrome, Edge: <b>Shift+Cmd+R</b> &nbsp;·&nbsp; Safari: <b>Option+Cmd+R</b> &nbsp;·&nbsp; Firefox: <b>Shift+Cmd+R</b></div>
+        </div>
+      </details>
+      <details class="setblock" id="set-datasource">
+        <summary><span class="tri"></span>Data source
+          <span class="desc">Hermes session database and access token file. Applied after Save, no restart needed.</span></summary>
+        <div class="sbody">
+          <div class="portrow"><span>Hermes DB path:</span>
+            <input id="dbPathInput" type="text" class="wide" placeholder="/home/you/.hermes/state.db">
+            <span class="note">read-only SQLite file</span></div>
+          <div class="portrow"><span>Token file path:</span>
+            <input id="tokenFileInput" type="text" class="wide">
+            <span class="note">file holding the access token</span></div>
+        </div>
+      </details>
+      <details class="setblock" id="set-pairs">
+        <summary><span class="tri"></span>Injection trigger tag pairs
+          <span class="desc">A pair = name + opening/closing markers; only recognized blocks count as injections. Use ↑ ↓ to reorder pairs.</span></summary>
+        <div class="sbody">
+          <div id="pairdesc" style="font-size:12.5px;color:var(--muted);margin-bottom:10px">
+            A pair = name + opening and closing markers. Only blocks recognized by
+            these pairs count as injections. No pairs — no injections. If the closing
+            marker is empty, the block runs from its opening marker until the next
+            injection's opening marker or the end of the message text.</div>
+          <div id="pairrows"></div>
+          <div style="margin-top:8px"><button class="btn ghost" onclick="addPairRow()">+ Add pair</button></div>
+        </div>
+      </details>
+      <details class="setblock" id="set-expansion">
+        <summary><span class="tri"></span>Default expansion
+          <span class="desc">Which collapsible elements are expanded when a session opens.</span></summary>
+        <div class="sbody" id="expandrows"></div>
+      </details>
+      <details class="setblock" id="set-sessionlist">
+        <summary><span class="tri"></span>Session list
+          <span class="desc">How many recent sessions to load into the sidebar on start/refresh.</span></summary>
+        <div class="sbody">
+          <div class="portrow"><span>Recent sessions:</span>
+            <input id="sessionsLimitInput" type="number" min="1" max="500" placeholder="50">
+            <span class="note">1..500, applies after Save</span></div>
+        </div>
+      </details>
+      <details class="setblock" id="set-indent">
+        <summary><span class="tri"></span>Message indentation
+          <span class="desc">Left indent per message type, px per level: System prompt 0, User 0, Assistant → Tool call 1, Tool result 2, Assistant 1.</span></summary>
+        <div class="sbody">
+          <div class="portrow"><span>Indent per level (px):</span>
+            <input id="indentInput" type="number" min="0" max="120" placeholder="14">
+            <span class="note">level × value, applies after Save</span></div>
+        </div>
+      </details>
+      <div class="author" id="authorline"></div>
+    </div>
+    <div class="foot">
+      <button class="btn primary" onclick="saveSettings()">💾 Save</button>
+      <span id="cfg-status"></span>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+var TOKEN = localStorage.getItem("im_token") || "";
+// Also try reading token from URL query (?token=...)
+(function(){ var m=location.search.match(/[?&]token=([^&]+)/); if(m) TOKEN=m[1]; })();
+var STATE = {sessions: [], active: null, data: null};
+var PAIRS = []; // trigger tag pairs from the server (config.json)
+var APP_VERSION = "0.32.0";
+// Left indent per message type: level × INDENT_PX
+// (0 = System prompt/User, 1 = Assistant/Assistant→tool call, 2 = Tool result)
+var INDENT_PX = 14;
+// Default expansion of collapsible elements (Settings → Default expansion)
+var EXPAND = {
+  sysprompt:false, user:true, assistant:false, toolcall:false, toolresult:false,
+  toolcallDetails:false, toolresultDetails:false, reasoning:false, injections:false
+};
+// Labels for the Default expansion checkboxes in Settings
+var EXPAND_LABELS = [
+  ["sysprompt","🧩 System prompt"],
+  ["user","👤 User"],
+  ["assistant","👾 Assistant"],
+  ["toolcall","👾 Assistant → 🔧 Tool call"],
+  ["toolresult","🔧 Tool result"],
+  ["toolcallDetails","Tool call details (arguments)"],
+  ["toolresultDetails","Tool result details (output)"],
+  ["reasoning","💭 Reasoning"],
+  ["injections","⬇️ Injections"]
+];
+
+// Message-type filter. All checkboxes are ON by default.
+var FILTER = {
+  injOnly: false,
+  user: true,
+  assistant: true,
+  toolcall: true,
+  toolresult: true,
+  sysprompt: true
+};
+
+function api(path, opts){
+  opts = opts || {};
+  var headers = Object.assign({"X-Auth-Token": TOKEN}, opts.headers||{});
+  return fetch(path, Object.assign({}, opts, {headers: headers})).then(r=>{
+    if(r.status===401){ showGate(); throw new Error("unauthorized"); }
+    return r.json();
+  });
+}
+function showGate(){ document.getElementById("gate").style.display="flex"; }
+function hideGate(){ document.getElementById("gate").style.display="none"; }
+function setToken(){
+  TOKEN = document.getElementById("tok").value.trim();
+  if(!TOKEN) return;
+  localStorage.setItem("im_token", TOKEN);
+  hideGate(); loadSessions();
+}
+
+function fmtTs(ts){
+  if(!ts) return "";
+  var d=new Date((typeof ts==="string"?parseFloat(ts):ts)*1000);
+  var p=n=>String(n).padStart(2,"0");
+  return d.toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit"})+" "+p(d.getHours())+":"+p(d.getMinutes());
+}
+function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function relTime(ts){
+  if(!ts) return "";
+  var d=new Date((typeof ts==="string"?parseFloat(ts):ts)*1000);
+  var diff=Date.now()-d.getTime();
+  if(diff<60000) return "now";
+  if(diff<3600000) return Math.floor(diff/60000)+" min ago";
+  if(diff<86400000) return Math.floor(diff/3600000)+" h ago";
+  return d.toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit"});
+}
+
+// ── Tag-pair config ──
+var VIEW = "session"; // "session" | "settings"
+// Which Settings blocks are expanded (persisted in config.json as settings_open)
+var SETTINGS_BLOCK_IDS = ["server", "datasource", "pairs", "expansion",
+                          "sessionlist", "indent"];
+var SETTINGS_OPEN = ["server"]; // default: only Server is expanded
+function showView(v){
+  VIEW=v;
+  document.getElementById("main").style.display = v==="session" ? "" : "none";
+  document.getElementById("settings").classList.toggle("panel-open", v==="settings");
+}
+function openSettings(){
+  showView("settings");
+  api("/api/config").then(res=>{
+    PAIRS=res.tag_pairs||[];
+    document.getElementById("portInput").value=res.port||8092;
+    if(Number.isFinite(parseInt(res.indent_px,10))) INDENT_PX=parseInt(res.indent_px,10);
+    if(res.expand && typeof res.expand==="object"){
+      Object.keys(EXPAND).forEach(k=>{ if(typeof res.expand[k]==="boolean") EXPAND[k]=res.expand[k]; });
+    }
+    document.getElementById("indentInput").value=INDENT_PX;
+    document.getElementById("sessionsLimitInput").value=res.sessions_limit||50;
+    document.getElementById("dbPathInput").value=res.db_path||"";
+    document.getElementById("tokenFileInput").value=res.token_file||"";
+    // Restore which Settings blocks are expanded (persisted in config.json)
+    if(Array.isArray(res.settings_open)){
+      SETTINGS_OPEN = res.settings_open.filter(k=>SETTINGS_BLOCK_IDS.indexOf(k)>=0);
+    }
+    applySettingsOpenState();
+    renderExpandRows();
+    renderSettings();
+  }).catch(()=>{ renderSettings(); });
+}
+// Apply the persisted open/collapsed state to the Settings blocks
+function applySettingsOpenState(){
+  SETTINGS_BLOCK_IDS.forEach(id=>{
+    var b=document.getElementById("set-"+id);
+    if(!b) return;
+    var want = SETTINGS_OPEN.indexOf(id)>=0;
+    if(b.hasAttribute("open")!==want){
+      if(want) b.setAttribute("open",""); else b.removeAttribute("open");
+    }
+  });
+}
+// Track user toggling of Settings blocks — DOM (open attribute) is the single
+// source of truth; saveSettings() reads it directly at save time, so no
+// event-ordering issues. Nothing to do here.
+// ── Server control (Settings → Server) ──
+function srvStatus(msg, color){
+  var st=document.getElementById("srv-status");
+  st.textContent=msg; st.style.color=color||"";
+}
+function stopServer(){
+  if(!confirm("Stop the monitor server? The web UI will go down until you start it again from the terminal (python3 monitor.py).")) return;
+  srvStatus("Stopping…","var(--yellow)");
+  api("/api/server",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"stop"})})
+    .then(()=>{ srvStatus("✓ Server stopped. Start it again: python3 monitor.py","var(--green)"); })
+    .catch(e=>{ srvStatus("✗ "+esc(e),"var(--red)"); });
+}
+function restartServer(){
+  srvStatus("Restarting…","var(--yellow)");
+  api("/api/server",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"restart"})})
+    .then(()=>{
+      // Poll until the fresh instance answers /api/ping
+      var tries=0;
+      var timer=setInterval(function(){
+        tries++;
+        fetch("/api/ping").then(r=>r.json()).then(p=>{
+          clearInterval(timer);
+          srvStatus("✓ Server restarted (v"+p.version+")","var(--green)");
+        }).catch(()=>{ if(tries>20){ clearInterval(timer); srvStatus("✗ Server did not come back","var(--red)"); } });
+      },500);
+    })
+    .catch(e=>{ srvStatus("✗ "+esc(e),"var(--red)"); });
+}
+function closeSettings(){ showView("session"); }
+function setExpand(k,v){ EXPAND[k]=v; }
+function renderExpandRows(){
+  var el=document.getElementById("expandrows");
+  el.innerHTML=EXPAND_LABELS.map(function(it){
+    var k=it[0], label=it[1];
+    return '<label class="exrow"><input type="checkbox" '+(EXPAND[k]?"checked":"")
+      +' onchange="setExpand(\''+k+'\',this.checked)"> '+esc(label)+'</label>';
+  }).join("");
+}
+function renderSettings(){
+  var b=document.getElementById("pairrows");
+  var h='<div class="pairrow headrow"><div>Pair name</div><div>Opening marker</div><div>Closing marker</div><div></div><div></div><div></div></div>';
+  PAIRS.forEach((p,i)=>{
+    h+='<div class="pairrow">'
+      +'<input class="name" data-i="'+i+'" data-f="name" value="'+esc(p.name)+'" placeholder="name">'
+      +'<input data-i="'+i+'" data-f="open" value="'+esc(p.open)+'" placeholder="<tag>">'
+      +'<input data-i="'+i+'" data-f="close" value="'+esc(p.close||"")+'" placeholder="</tag> (may be empty)">'
+      +'<button class="mv" title="Move pair up" onclick="movePairRow('+i+',-1)">↑</button>'
+      +'<button class="mv" title="Move pair down" onclick="movePairRow('+i+',1)">↓</button>'
+      +'<button class="del" title="Delete pair" onclick="delPairRow('+i+')">✕</button>'
+      +'</div>';
+  });
+  if(!PAIRS.length) h+='<div style="color:var(--muted);font-size:12.5px;padding:6px 0">No pairs — injections are not recognized. Add a pair.</div>';
+  b.innerHTML=h;
+  b.querySelectorAll("input").forEach(inp=>{
+    inp.addEventListener("input",()=>{
+      var i=+inp.getAttribute("data-i"), f=inp.getAttribute("data-f");
+      PAIRS[i][f]=inp.value;
+    });
+  });
+}
+function addPairRow(){ PAIRS.push({name:"",open:"",close:""}); renderSettings(); }
+function delPairRow(i){ PAIRS.splice(i,1); renderSettings(); }
+function movePairRow(i,dir){
+  var j=i+dir;
+  if(j<0||j>=PAIRS.length) return;
+  var t=PAIRS[i]; PAIRS[i]=PAIRS[j]; PAIRS[j]=t;
+  renderSettings();
+}
+function saveSettings(){
+  var st=document.getElementById("cfg-status");
+  var portRaw=document.getElementById("portInput").value.trim();
+  var port=portRaw===""?null:parseInt(portRaw,10);
+  if(portRaw!=="" && (!Number.isFinite(port)||port<1||port>65535)){
+    st.textContent="✗ Port must be 1..65535"; st.style.color="var(--red)"; return;
+  }
+  var pairs=PAIRS.map(p=>({name:(p.name||"").trim(),open:p.open||"",close:p.close||""}))
+    .filter(p=>p.name&&p.open);
+  var body={tag_pairs:pairs};
+  if(port!==null) body.port=port;
+  // data source & connections
+  var dbp=document.getElementById("dbPathInput").value.trim();
+  var tfp=document.getElementById("tokenFileInput").value.trim();
+  if(!dbp||!tfp){ st.textContent="✗ DB path and token file are required"; st.style.color="var(--red)"; return; }
+  body.db_path=dbp; body.token_file=tfp;
+  // persist sidebar width too (SIDE_WIDTH is kept current by the resize handler)
+  if(SIDE_WIDTH>=260) body.side_width=SIDE_WIDTH;
+  // left indent per message-type level
+  var indRaw=document.getElementById("indentInput").value.trim();
+  if(indRaw!==""){
+    var ind=parseInt(indRaw,10);
+    if(!Number.isFinite(ind)||ind<0||ind>120){
+      st.textContent="✗ Indent must be 0..120"; st.style.color="var(--red)"; return;
+    }
+    body.indent_px=ind;
+  }
+  // how many recent sessions to load in the sidebar
+  var slRaw=document.getElementById("sessionsLimitInput").value.trim();
+  if(slRaw!==""){
+    var sl=parseInt(slRaw,10);
+    if(!Number.isFinite(sl)||sl<1||sl>500){
+      st.textContent="✗ Sessions limit must be 1..500"; st.style.color="var(--red)"; return;
+    }
+    body.sessions_limit=sl;
+  }
+  // default expansion of collapsible elements
+  var expand={};
+  EXPAND_LABELS.forEach(it=>{ expand[it[0]]=!!EXPAND[it[0]]; });
+  body.expand=expand;
+  // Settings blocks open/collapsed state — read from the live DOM (the open
+  // attribute is the source of truth), not from the event-updated variable
+  body.settings_open=SETTINGS_BLOCK_IDS.filter(function(id){
+    var b=document.getElementById("set-"+id);
+    return !!(b && b.hasAttribute("open"));
+  });
+  api("/api/config",{method:"PUT",headers:Object.assign({"X-Auth-Token":TOKEN},{"Content-Type":"application/json"}),
+      body:JSON.stringify(body)})
+    .then(res=>{
+      PAIRS=res.tag_pairs||[];
+      if(Number.isFinite(parseInt(res.indent_px,10))) INDENT_PX=parseInt(res.indent_px,10);
+      if(res.expand && typeof res.expand==="object"){
+        Object.keys(EXPAND).forEach(k=>{ if(typeof res.expand[k]==="boolean") EXPAND[k]=res.expand[k]; });
+      }
+      st.textContent="✓ Settings saved";
+      st.style.color="var(--green)";
+      renderSettings();
+      if(STATE.active) loadSession(STATE.active, false); // re-parse injections
+      setTimeout(()=>{st.textContent="";},4000);
+    })
+    .catch(e=>{ st.textContent="✗ Error: "+esc(e); st.style.color="var(--red)"; });
+}
+
+// ── Sidebar resize (width persisted in config.json via Save) ──
+var SIDE_WIDTH = 0; // current width, sent with the next config save
+(function(){
+  var side=document.getElementById("side"), sizer=document.getElementById("sizer");
+  // config.json value wins over localStorage; fetched asynchronously below
+  var w=parseInt(localStorage.getItem("im_sidew")||"0",10);
+  if(w>=260){ side.style.width=w+"px"; SIDE_WIDTH=w; }
+  api("/api/config").then(res=>{
+    var cw=parseInt(res.side_width,10);
+    if(Number.isFinite(cw)&&cw>=260){ side.style.width=cw+"px"; SIDE_WIDTH=cw;
+      localStorage.setItem("im_sidew", String(cw)); }
+  }).catch(()=>{});
+  var dragging=false;
+  sizer.addEventListener("mousedown",e=>{ dragging=true; sizer.classList.add("drag"); e.preventDefault(); });
+  document.addEventListener("mousemove",e=>{
+    if(!dragging) return;
+    var nw=Math.min(800,Math.max(260,e.clientX));
+    side.style.width=nw+"px"; SIDE_WIDTH=nw;
+  });
+  document.addEventListener("mouseup",()=>{
+    if(!dragging) return;
+    dragging=false; sizer.classList.remove("drag");
+    localStorage.setItem("im_sidew", parseInt(side.style.width,10));
+  });
+})();
+
+// ── Setup wizard (single window; shown when the DB is missing/unreadable) ──
+function showSetup(st){
+  document.getElementById("setup").style.display="flex";
+  if(st && st.db && st.db.path) document.getElementById("suDb").value=st.db.path;
+  api("/api/config").then(c=>{
+    if(!document.getElementById("suToken").value) document.getElementById("suToken").value=c.token_file||"";
+    document.getElementById("suPort").value=c.port||8092;
+  }).catch(()=>{});
+}
+function hideSetup(){ document.getElementById("setup").style.display="none"; }
+function testSetupDb(){
+  var st=document.getElementById("suDbStatus");
+  var p=document.getElementById("suDb").value.trim();
+  if(!p){ st.textContent="Enter a path first"; st.style.color="var(--yellow)"; return; }
+  st.textContent="Checking…"; st.style.color="var(--muted)";
+  api("/api/test-db",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:p})})
+    .then(r=>{
+      if(r.ok){ st.textContent="✓ Connected — "+r.sessions+" session(s) found"; st.style.color="var(--green)"; }
+      else { st.textContent="✗ "+(r.error||"not readable"); st.style.color="var(--red)"; }
+    }).catch(e=>{ st.textContent="✗ "+esc(e); st.style.color="var(--red)"; });
+}
+function saveSetup(){
+  var err=document.getElementById("setup-err"); err.textContent=""; err.style.color="";
+  var dbp=document.getElementById("suDb").value.trim();
+  var tfp=document.getElementById("suToken").value.trim();
+  var portRaw=document.getElementById("suPort").value.trim();
+  if(!dbp||!tfp){ err.textContent="DB path and token file are required"; err.style.color="var(--red)"; return; }
+  var body={db_path:dbp, token_file:tfp};
+  if(portRaw!=="") body.port=parseInt(portRaw,10);
+  api("/api/config",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+    .then(()=>api("/api/status"))
+    .then(st=>{
+      if(st.db && st.db.exists){ hideSetup(); loadSessions(); }
+      else { err.textContent="Saved, but the database is still unavailable: "+((st.db&&st.db.error)||"unknown error"); err.style.color="var(--red)"; }
+    })
+    .catch(e=>{ err.textContent="✗ Error: "+esc(e); err.style.color="var(--red)"; });
+}
+
+// ── Sessions ──
+function loadSessions(){
+  api("/api/sessions"+(STATE.active? "?include="+encodeURIComponent(STATE.active):"")).then(res=>{
+    STATE.sessions=res.sessions||[];
+    if(STATE.active){
+      var still=STATE.sessions.find(s=>s.id===STATE.active);
+      if(!still) STATE.active=null;
+    }
+    if(!STATE.active && STATE.sessions.length){ STATE.active=STATE.sessions[0].id; }
+    renderSidebar();
+    if(STATE.active) loadSession(STATE.active, false);
+  }).catch(e=>{ if(!/unauthorized/.test(String(e))) {
+    document.getElementById("sesslist").innerHTML='<div id="empty">Failed to load sessions: '+esc(e)+'<br><br><button class="btn ghost" onclick="showSetup()">Open setup</button></div>';
+  }});
+}
+function selectSession(id){ STATE.active=id; loadSession(id, true); }
+function loadSession(id, rerenderSide){
+  api("/api/sessions/"+encodeURIComponent(id)+"/messages").then(res=>{
+    // Same session already on screen → point-like update (view stays intact);
+    // different session → full re-render.
+    var same = STATE.data && STATE.data.session && STATE.data.session.id===id;
+    if(same) mergeMessages(res);
+    else { STATE.data=res; renderMain(); }
+    if(rerenderSide) renderSidebar();
+  }).catch(e=>{});
+}
+function renderSidebar(){
+  var el=document.getElementById("sesslist");
+  var st=el.scrollTop; // keep scroll position across rebuilds (Auto/Refresh)
+  if(!STATE.sessions.length){ el.innerHTML='<div id="empty">No sessions</div>'; return; }
+  var h="";
+  var prevDate="";
+  var today=new Date().toDateString();
+  var yesterday=new Date(Date.now()-86400000).toDateString();
+  STATE.sessions.forEach(s=>{
+    var d=new Date((typeof s.last_activity==="string"?parseFloat(s.last_activity):s.last_activity)*1000);
+    var key=d.toDateString();
+    var dateLbl="";
+    if(key!==prevDate){
+      dateLbl = key===today ? "———— Today ————" :
+                key===yesterday ? "———— Yesterday ————" :
+                "―――― "+d.toLocaleDateString("en-GB",{day:"2-digit",month:"2-digit",year:"2-digit"})+" ――――";
+      prevDate=key;
+    }
+    if(dateLbl) h+='<div style="font-size:11px;color:var(--muted);text-align:center;padding:4px">'+dateLbl+'</div>';
+    var active = s.id===STATE.active ? " active" : "";
+    h+='<button class="sess'+active+'" onclick="selectSession(\''+s.id+'\')">'
+      +'<div class="t">'+esc(s.title||s.id)+'</div>'
+      +'<div class="sid">'+esc(s.id)+'</div>'
+      +'<div class="meta">'+relTime(s.last_activity)
+      +(s.inject_count?' <span class="lbl">⬇️ '+s.inject_count+' inj.</span>':'')
+      +'</div></button>';
+  });
+  el.innerHTML=h;
+  el.scrollTop=st; // restore scroll position after rebuild
+}
+
+function filterBar(){
+  return '<div id="filterbar">'
+    +'<span class="ftitle">Filter:</span>'
+    +'<label><input type="checkbox" id="f-inj" '+(FILTER.injOnly?"checked":"")+' onchange="setFilter(\'injOnly\',this.checked)"> ⬇️ Only with injections</label>'
+    +'<label><input type="checkbox" id="f-user" '+(FILTER.user?"checked":"")+' onchange="setFilter(\'user\',this.checked)"> 👤 User</label>'
+    +'<label><input type="checkbox" id="f-assistant" '+(FILTER.assistant?"checked":"")+' onchange="setFilter(\'assistant\',this.checked)"> 👾 Assistant</label>'
+    +'<label><input type="checkbox" id="f-toolcall" '+(FILTER.toolcall?"checked":"")+' onchange="setFilter(\'toolcall\',this.checked)"> 🔧 Tool calls</label>'
+    +'<label><input type="checkbox" id="f-toolresult" '+(FILTER.toolresult?"checked":"")+' onchange="setFilter(\'toolresult\',this.checked)"> 🔧 Tool results</label>'
+    +'<label><input type="checkbox" id="f-sys" '+(FILTER.sysprompt?"checked":"")+' onchange="setFilter(\'sysprompt\',this.checked)"> 🧩 System prompt</label>'
+    +'</div>';
+}
+function setFilter(k,v){ FILTER[k]=v; applyFilter(); }
+// Visibility under the current filter.
+// "only with injections" is a hard filter: only entries with recognized
+// injections are shown, everything else (including system prompt) is hidden.
+function applyFilter(){
+  document.querySelectorAll('#main .msg').forEach(el=>{
+    var t=el.getAttribute("data-type");
+    var hasInj = el.getAttribute("data-inj")==="1";
+    var show;
+    if(FILTER.injOnly) show=hasInj;
+    else if(t==="user") show=FILTER.user;
+    else if(t==="assistant") show=FILTER.assistant;
+    else if(t==="toolcall") show=FILTER.toolcall;
+    else if(t==="toolresult") show=FILTER.toolresult;
+    else if(t==="sysprompt") show=FILTER.sysprompt;
+    else show=false;
+    el.style.display = show ? "" : "none";
+  });
+}
+
+// Render tracking for point-like (incremental) updates: existing DOM nodes
+// are never touched; only new messages get appended at the bottom.
+var RENDERED = {sid:null, ids:{}, sysHash:null};
+
+function chipsHtml(s, count){
+  return '<span class="chip">sid: <b class="mono">'+esc(s.id||"")+'</b></span>'
+    +'<span class="chip">model: <b>'+esc(s.model||"")+'</b></span>'
+    +'<span class="chip">messages: <b>'+count+'</b></span>'
+    +(s.cwd?'<span class="chip">cwd: <b>'+esc(s.cwd)+'</b></span>':'')
+    +'<span class="chip">start: <b>'+esc(fmtTs(s.started_at))+'</b></span>'
+    +'<span class="chip">last msg: <b>'+esc(fmtTs(s.last_msg))+'</b></span>';
+}
+// System prompt as a message-type block (data-type="sysprompt"),
+// rendered through the same .msg geometry, injections parsed inside.
+function sysMsgHtml(sp){
+  var hasInj = sp.injections && sp.injections.length;
+  var body='<div class="mbody">'
+    +'<pre class="prompt">'+esc(sp.prompt)+'</pre>';
+  (sp.injections||[]).forEach(it=>{
+    if(it.depth!==0) return;
+    body+=injBlock(esc(it.kind), it.text);
+    (it.children||[]).forEach(ch=>{
+      body+=injBlock('<span class="par">'+esc(it.kind)+' ></span> '+esc(ch.kind), ch.text);
+    });
+  });
+  body+='</div>';
+  return '<div class="msg'+(EXPAND.sysprompt?" open":"")+'" data-type="sysprompt" data-inj="'+(hasInj?"1":"0")+'">'
+    +msgHead("🧩","System prompt","",{}, hasInj?'⬇️ '+(countInj(sp.injections))+' injection(s)':'')
+    +body+'</div>';
+}
+
+function renderMain(){
+  var d=STATE.data;
+  if(!d){ document.getElementById("main").innerHTML='<div id="empty">Select a session</div>'; RENDERED={sid:null,ids:{},sysHash:null}; return; }
+  var s=d.session, sp=d.system_prompt, msgs=d.messages||[];
+
+  var h='<div id="top"><div class="row1"><h2>'+esc(s.title||s.id)+'</h2>'
+    +'<button id="refresh" onclick="loadSessions()">⟳ Refresh</button>'
+    +'<button id="auto" onclick="toggleAuto(this)"><span class="btni">⟳</span> Auto</button>'
+    +'<button id="cfgbtn" onclick="openSettings()">⚙ Settings</button></div>'
+    +'<div class="chips">'+chipsHtml(s,msgs.length)+'</div>'
+    +filterBar()
+    +'</div>';
+
+  if(sp){ h+=sysMsgHtml(sp); }
+
+  msgs.forEach(m=>{ h+=renderMsg(m); });
+  document.getElementById("main").innerHTML=h;
+  RENDERED.sid=s.id; RENDERED.ids={}; msgs.forEach(m=>{ RENDERED.ids[m.id]=true; });
+  RENDERED.sysHash=sp?sp.hash:null;
+  applyFilter();
+  // Re-apply the Auto toggle state: renderMain() replaces the whole #main
+  // (including the button), which would otherwise reset its "on" class
+  // while the polling timer keeps running.
+  if(window._auto){ var ab=document.getElementById("auto"); if(ab) ab.classList.add("on"); }
+}
+
+// Unified message header with disclosure triangle
+function msgHead(icon, label, roleCls, m, subj, dk){
+  return '<div class="mhead" onclick="toggleMsg(this)"><span class="tri"></span><span class="role">'+icon+' '
+    +(roleCls?'<span class="'+roleCls+'">'+esc(label)+'</span>':'<span>'+esc(label)+'</span>')
+    +(dk?' <span class="dk">| '+esc(dk)+'</span>':'')
+    +'</span><span class="time">'+fmtTs(m&&m.timestamp)+'</span>'
+    +'<span class="subj">'+(subj||'')+'</span></div>';
+}
+function toggleMsg(head){
+  head.parentElement.classList.toggle("open");
+}
+// Unified reasoning block (always first in the body)
+function reasBlock(m){
+  var r=m.reasoning? String(m.reasoning).trim() : "";
+  if(!r || r==="Content hidden") return "";
+  return '<details class="reas"'+(EXPAND.reasoning?" open":"")+'><summary><span class="tri"></span>💭 Reasoning <span class="hint">'
+    +r.length+' chars</span></summary>'
+    +'<pre>'+esc(r)+'</pre></details>';
+}
+// Unified injection block (label may contain safe HTML: "parent > child")
+function injBlock(label, text){
+  return '<details class="inj"'+(EXPAND.injections?" open":"")+'><summary><span class="tri"></span><span class="k">'+label+'</span>'
+    +'<span class="hint">⬇️ '+text.length+' chars</span></summary>'
+    +'<pre>'+esc(text)+'</pre></details>';
+}
+// Flat injection display: top-level blocks + their children as "parent > child"
+function injBlocks(list){
+  var h="";
+  (list||[]).forEach(it=>{
+    if(it.depth!==0) return; // render only top-level; children inside the parent
+    h+=injBlock(esc(it.kind), it.text);
+    (it.children||[]).forEach(ch=>{
+      h+=injBlock('<span class="par">'+esc(it.kind)+' &gt;</span> '+esc(ch.kind), ch.text);
+    });
+  });
+  return h;
+}
+function countInj(list){
+  var n=0;
+  (list||[]).forEach(it=>{ n += 1 + (it.children||[]).length; });
+  return n;
+}
+
+function renderMsg(m){
+  // Injections are parsed for every role by the backend.
+  var inj=m.injections||[];
+  var hasInj=inj.length>0;
+  var injHtml=injBlocks(inj);
+  var injSubj=hasInj?'⬇️ '+countInj(inj)+' injection(s)':'';
+  var dk=m.display_kind;
+  // Left indent by message-type level (0 = sysprompt/User, 1 = Assistant/Tool call, 2 = Tool result)
+  function indentStyle(lv){
+    if(!lv || !INDENT_PX) return "";
+    return ' style="margin-left:'+(20+lv*INDENT_PX)+'px"';
+  }
+
+  if(m.role==="user"){
+    var body="";
+    var cc=(m.content||"").toString();
+    if(cc.trim()) body+='<div class="raw">'+esc(cc)+'</div>';
+    body+=injHtml; // injections at the END of the message, as in reality
+    return '<div class="msg'+(EXPAND.user?" open":"")+'" data-type="user" data-inj="'+(hasInj?"1":"0")+'">'
+      +msgHead("👤","User","role-user",m, injSubj, dk)
+      +'<div class="mbody">'+body+'</div></div>';
+  }
+  if(m.role==="assistant" && m.tool_calls){
+    var body2 = reasBlock(m); // reasoning first
+    (m.tool_calls||[]).forEach(tc=>{
+      body2+='<details class="sec"'+(EXPAND.toolcallDetails?" open":"")+'><summary><span class="tri"></span>🔧 '+esc(tc.name)+' <span class="badge">'+esc(tc.call_id||"")+'</span></summary>'
+        +'<div class="body"><pre class="prompt">'+esc(JSON.stringify(tc.arguments,null,2))+'</pre></div></details>';
+    });
+    body2+=injHtml; // injections at the end
+    return '<div class="msg'+(EXPAND.toolcall?" open":"")+'" data-type="toolcall" data-inj="'+(hasInj?"1":"0")+'"'+indentStyle(1)+'>'
+      +msgHead("👾","Assistant → 🔧 Tool call","",m, injSubj, dk)
+      +'<div class="mbody">'+body2+'</div></div>';
+  }
+  if(m.role==="tool"){
+    var c=m.content||"";
+    var body3='<details class="sec"'+(EXPAND.toolresultDetails?" open":"")+'><summary><span class="tri"></span>Result ('+(c?c.length:0)+' chars)</summary>'
+      +'<div class="body"><pre class="prompt">'+esc(c)+'</pre></div></details>';
+    body3+=injHtml; // injections at the end
+    return '<div class="msg'+(EXPAND.toolresult?" open":"")+'" data-type="toolresult" data-inj="'+(hasInj?"1":"0")+'"'+indentStyle(2)+'>'
+      +msgHead("🔧","Tool → "+(m.tool_name||"?")+" → Result","role-tool",m, injSubj, dk)
+      +'<div class="mbody">'+body3+'</div></div>';
+  }
+  // assistant text / anything else: reasoning first, then text, injections last
+  var body4 = reasBlock(m);
+  var cc2=(m.content||"").toString();
+  if(cc2.trim()) body4+='<div class="raw">'+esc(cc2)+'</div>';
+  body4+=injHtml;
+  return '<div class="msg'+(EXPAND.assistant?" open":"")+'" data-type="assistant" data-inj="'+(hasInj?"1":"0")+'"'+indentStyle(1)+'>'
+    +msgHead("👾","Assistant","",m, injSubj, dk)
+    +'<div class="mbody">'+body4+'</div></div>';
+}
+
+// "Auto": incremental refresh — adds missing entries, never resets existing
+// panel state (open/collapsed blocks, scroll position are preserved).
+function toggleAuto(btn){
+  window._auto=!window._auto;
+  btn.classList.toggle("on",window._auto);
+  if(window._auto && !window._autoTimer){
+    window._autoTimer=setInterval(autoTick,5000);
+  }
+  if(!window._auto && window._autoTimer){
+    clearInterval(window._autoTimer); window._autoTimer=null;
+  }
+}
+function autoTick(){
+  // 1) refresh the session list in place (renders only if the active session still exists)
+  api("/api/sessions"+(STATE.active? "?include="+encodeURIComponent(STATE.active):"")).then(res=>{
+    STATE.sessions=res.sessions||[];
+    if(!STATE.active && STATE.sessions.length){ STATE.active=STATE.sessions[0].id; loadSession(STATE.active,false); }
+    else if(STATE.active){
+      // 2) incremental merge of messages for the open session
+      api("/api/sessions/"+encodeURIComponent(STATE.active)+"/messages").then(d=>{
+        mergeMessages(d);
+      }).catch(()=>{});
+    }
+    renderSidebar();
+  }).catch(()=>{});
+}
+function mergeMessages(d){
+  var cur=STATE.data;
+  if(!cur || cur.session.id!==d.session.id){ STATE.data=d; renderMain(); return; }
+  var byId={};
+  cur.messages.forEach(m=>{ byId[m.id]=m; });
+  var added=[];
+  d.messages.forEach(m=>{
+    if(!byId[m.id]){ cur.messages.push(m); added.push(m); }
+    else { byId[m.id]=Object.assign(byId[m.id], m); } // update in place
+  });
+  if(added.length){ cur.messages.sort((a,b)=>a.id-b.id); }
+  var sysChanged = d.system_prompt && (!cur.system_prompt || cur.system_prompt.hash!==d.system_prompt.hash);
+  if(sysChanged){ cur.system_prompt=d.system_prompt; }
+  incrementalRender(added, sysChanged);
+}
+// Point-like update: everything already rendered is NOT touched; new messages
+// are appended at the bottom; chips and (if changed) the system-prompt block
+// are updated in place. Falls back to a full render if the DOM is stale.
+function incrementalRender(addedMsgs, sysChanged){
+  var d=STATE.data;
+  if(!d) return;
+  if(RENDERED.sid!==d.session.id){ renderMain(); return; }
+  var main=document.getElementById("main");
+  var s=d.session, msgs=d.messages||[];
+  var chipsEl=main.querySelector(".chips");
+  if(chipsEl) chipsEl.innerHTML=chipsHtml(s, msgs.length);
+  if(sysChanged){
+    var spNode=main.querySelector('.msg[data-type="sysprompt"]');
+    var sp=d.system_prompt;
+    if(sp){
+      var html=sysMsgHtml(sp);
+      if(spNode) spNode.outerHTML=html;
+      else {
+        var top=document.getElementById("top");
+        if(top) top.insertAdjacentHTML("afterend", html);
+      }
+      RENDERED.sysHash=sp.hash;
+    } else if(spNode){ spNode.remove(); RENDERED.sysHash=null; }
+  }
+  var h="";
+  addedMsgs.forEach(m=>{ h+=renderMsg(m); RENDERED.ids[m.id]=true; });
+  if(h) main.insertAdjacentHTML("beforeend", h);
+  applyFilter();
+}
+
+// Authorship line (Settings footer)
+document.getElementById("authorline").textContent =
+  "Inject Monitor v"+APP_VERSION
+  +" | © 2026 Oleg Maisak (idea & vibe coding), Lex (coding agent)"
+  +" | MIT License";
+
+function applyConfig(c){
+  if(Number.isFinite(parseInt(c.indent_px,10))) INDENT_PX=parseInt(c.indent_px,10);
+  if(c.expand && typeof c.expand==="object"){
+    Object.keys(EXPAND).forEach(k=>{ if(typeof c.expand[k]==="boolean") EXPAND[k]=c.expand[k]; });
+  }
+}
+document.getElementById("tok").addEventListener("keydown",function(e){
+  if(e.key==="Enter") setToken();
+});
+
+function initApp(){
+  api("/api/status").then(function(st){
+    if(st.db && st.db.exists){
+      // Load Settings (Default expansion, indent) BEFORE the first render,
+      // otherwise the saved expansion state is ignored on page load.
+      api("/api/config").then(function(c){ applyConfig(c); loadSessions(); })
+        .catch(function(){ loadSessions(); });
+    }
+    else showSetup(st);
+  }).catch(function(){ loadSessions(); });
+}
+if(TOKEN){ hideGate(); initApp(); } else { showGate(); }
+</script>
+</body>
+</html>

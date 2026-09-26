@@ -1,0 +1,11 @@
+# Local runtime files — never commit
+config.json
+inject-monitor-token
+*.log
+*.pyc
+__pycache__/
+backups/
+*.bak
+*.bak-*
+*.bak.*
+archive/

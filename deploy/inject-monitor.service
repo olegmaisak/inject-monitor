@@ -1,0 +1,14 @@
+[Unit]
+Description=Inject Monitor - memory injection diagnostics UI for Hermes Agent (port from config.json)
+After=network.target
+
+[Service]
+Type=simple
+# %h = your home directory. Adjust if the monitor is installed elsewhere.
+ExecStart=/usr/bin/python3 %h/inject-monitor/monitor.py
+WorkingDirectory=%h/inject-monitor
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
