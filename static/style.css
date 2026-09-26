@@ -1,0 +1,266 @@
+/* Inject Monitor — single stylesheet (Design System).
+   Palette, typography and spacing tokens are defined in :root.
+   Rules: no inline styles in HTML/JS; status colors via .status-* classes;
+   see ARCHITECTURE.md → Design System. */
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c212a; --border:#30363d;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950;
+    --red:#f85149; --yellow:#d29922; --purple:#a371f7; --cyan:#39c5cf;
+    /* typography scale */
+    --fs-xs:11px; --fs-s:12.5px; --fs-m:13px; --fs-l:15px;
+    --font-ui:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:ui-monospace,Consolas,monospace;
+    /* spacing scale */
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:20px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font:var(--fs-s)/1.5 var(--font-ui)}
+  #wrap{display:flex;height:100vh}
+
+  /* ── Sessions sidebar (resizable) ── */
+  #side{width:320px;min-width:260px;background:var(--panel);
+    border-right:1px solid var(--border);display:flex;flex-direction:column;
+    flex-shrink:0}
+  #side h1{font-size:var(--fs-l);margin:10px 12px 4px;color:var(--text)}
+  #side .sub{font-size:var(--fs-xs);color:var(--muted);margin:0 12px 10px}
+  #sesslist{flex:1;overflow-y:auto}
+  /* Themed scrollbars matching the dark design */
+  #sesslist, .modal-body, pre.prompt{scrollbar-width:thin;
+    scrollbar-color:var(--border) transparent}
+  #sesslist::-webkit-scrollbar,.modal-body::-webkit-scrollbar{width:8px}
+  #sesslist::-webkit-scrollbar-track{background:transparent}
+  #sesslist::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  #sesslist::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+  .sess{display:block;width:100%;text-align:left;background:none;border:none;
+    padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);color:var(--text)}
+  .sess:hover{background:var(--panel2)}
+  .sess.active{background:var(--accent);color:#fff}
+  .sess.active .sid,.sess.active .meta{color:rgba(255,255,255,.85)}
+  .sess .t{font-weight:600;font-size:var(--fs-s);line-height:1.3;overflow:hidden;
+    text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .sess .sid{font-family:var(--font-mono);font-size:var(--fs-xs);color:var(--accent);
+    margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sess .meta{font-size:var(--fs-xs);color:var(--muted);margin-top:2px}
+  .sess .meta b{color:var(--green)}
+  .sess .lbl{display:inline-block;font-size:var(--fs-xs);border-radius:8px;padding:0 5px;
+    margin-left:4px;background:rgba(13,17,23,.55);color:#e6edf3;
+    border:1px solid rgba(255,255,255,.18)}
+  #side .foot{font-size:var(--fs-xs);color:var(--muted);padding:8px 12px;border-top:1px solid var(--border)}
+
+  /* Drag handle between panels */
+  #sizer{width:6px;cursor:col-resize;flex-shrink:0;background:transparent;
+    margin-left:-4px;z-index:10}
+  #sizer:hover,#sizer.drag{background:var(--accent);opacity:.5}
+
+  /* ── Main column ── */
+  #main{flex:1;overflow-y:auto;padding:0 0 40px;min-width:0;
+    scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  #top{margin:0;padding:12px 20px 8px;position:sticky;top:0;background:var(--bg);z-index:5;
+    border-bottom:1px solid var(--border)}
+  #top .row1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  #top h2{font-size:var(--fs-l);margin:0}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:var(--sp-2)}
+  .chip{font-size:var(--fs-xs);color:var(--muted);background:var(--panel2);padding:3px 8px;border-radius:10px;
+    white-space:nowrap}
+  .chip b{color:var(--accent)}
+  .chip .mono{font-family:var(--font-mono)}
+  /* Buttons in row1: breathing room from the title, consistent sizing */
+  #top .row1 button{margin-left:2px}
+  #top .row1 button:first-of-type{margin-left:auto}
+  #refresh{background:var(--purple);color:#fff;border:none;
+    padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600}
+  #auto{background:var(--panel2);color:var(--muted);border:1px solid var(--border);
+    padding:6px 10px;border-radius:8px;cursor:pointer}
+  #auto.on{color:var(--green);border-color:var(--green)}
+  #cfgbtn{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    padding:6px 10px;border-radius:8px;cursor:pointer}
+
+  /* ── Message-type filter (inside the top panel) ── */
+  #filterbar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;
+    padding:8px 0 4px;font-size:var(--fs-s)}
+  #filterbar label{display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--muted)}
+  #filterbar label:has(input:checked){color:var(--text)}
+  #filterbar input{accent-color:var(--accent)}
+  #filterbar .ftitle{font-weight:600;color:var(--text);font-size:var(--fs-s);margin-right:2px}
+
+  /* ── Collapsible blocks ── */
+  details.block{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin:10px 20px;overflow:hidden}
+  details.block>summary{background:var(--panel2);padding:10px 14px;cursor:pointer;
+    font-weight:600;font-size:var(--fs-m);border-radius:10px}
+  details.block>summary .badge{font-size:var(--fs-xs);color:var(--muted);margin-left:8px}
+  details.block[open]>summary{border-radius:10px 10px 0 0}
+  details.block>div.body{padding:12px 14px}
+
+  details.sec>summary{background:var(--panel);padding:7px 10px;cursor:pointer;
+    font-size:var(--fs-s);color:var(--accent);border-radius:8px}
+  details.sec>div.body{padding:8px 12px}
+
+  /* Unified disclosure marker (triangle) for every expandable element */
+  .tri{display:inline-block;width:0;height:0;border-style:solid;vertical-align:middle;
+    border-width:5px 0 5px 7px;border-color:transparent transparent transparent var(--muted);
+    margin-right:7px;transition:transform .12s ease}
+  details[open]>summary>.tri,
+  .msg.open>.mhead>.tri{transform:rotate(90deg)}
+  summary{list-style:none}
+  summary::-webkit-details-marker{display:none}
+
+  /* Same unified style for all nested blocks inside mbody */
+  .msg .mbody>details{margin:0 0 8px}
+  .msg .mbody>details:last-child{margin-bottom:0}
+
+  /* Injection block */
+  details.inj{border-left:3px solid var(--cyan);background:rgba(57,197,207,.06);
+    border-radius:0 8px 8px 0}
+  details.inj>summary{padding:8px 10px;cursor:pointer}
+  details.inj>summary .k{font-weight:600;color:var(--cyan)}
+  details.inj>summary .k .par{color:var(--muted);font-weight:400}
+  details.inj>summary .hint{font-size:var(--fs-xs);color:var(--muted);margin-left:8px}
+  details.inj>pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;
+    font-size:var(--fs-s);max-height:none;overflow:visible;border-top:1px dashed var(--border)}
+
+  /* Reasoning block */
+  details.reas{border-left:3px solid var(--purple);background:rgba(163,113,247,.06);
+    border-radius:0 8px 8px 0}
+  details.reas>summary{padding:8px 10px;cursor:pointer;
+    font-weight:600;font-size:var(--fs-s);color:var(--purple)}
+  details.reas>pre{margin:0;padding:10px 12px;white-space:pre-wrap;word-break:break-word;
+    font-size:var(--fs-s);border-top:1px dashed var(--border)}
+
+  /* Messages — single geometry for all types */
+  .msg{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin:8px 20px;overflow:hidden}
+  .msg .mhead{display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;
+    background:var(--panel2)}
+  .msg .mhead .role{font-weight:700;white-space:nowrap}
+  .msg .mhead .time{font-size:var(--fs-xs);color:var(--muted);white-space:nowrap}
+  .msg .mhead .subj{flex:1;font-size:var(--fs-xs);color:var(--muted);overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;text-align:right}
+  .msg .mbody{display:none;padding:10px 12px;width:100%;min-width:0;overflow:hidden}
+  .msg.open .mbody{display:block}
+  .role-user{color:var(--accent)}
+  .role-tool{color:var(--green)}
+  .msg .raw{white-space:pre-wrap;word-break:break-word;font-size:var(--fs-s);
+    margin-bottom:12px} /* gap between message text and injection blocks */
+  .msg .mbody>details:last-child{margin-bottom:0}
+
+  pre.prompt{white-space:pre-wrap;word-break:break-word;font-size:var(--fs-s);
+    max-height:420px;overflow:auto;background:var(--panel2);border:1px solid var(--border);
+    border-radius:8px;padding:10px;margin:0}
+
+  /* ── Settings panel (replaces the main column, like a third view) ── */
+  #settings{display:none;background:var(--bg)}
+  #settings.panel-open{display:flex;flex-direction:column;height:100%;flex:1;min-width:0}
+  #settings .head{display:flex;align-items:center;gap:10px;padding:14px 20px;
+    border-bottom:1px solid var(--border);font-weight:700;font-size:var(--fs-l);
+    background:var(--panel);flex-shrink:0}
+  #settings .head .sub{font-size:var(--fs-xs);color:var(--muted);font-weight:400;
+    margin-left:8px}
+  #settings .body{flex:1;overflow-y:auto;padding:16px 20px;
+    scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  #settings .body::-webkit-scrollbar{width:8px}
+  #settings .body::-webkit-scrollbar-track{background:transparent}
+  #settings .body::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+  #settings .sec-title{font-size:var(--fs-s);color:var(--muted);font-weight:600;
+    text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px}
+  #settings .sec-title:first-child{margin-top:0}
+  .portrow{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:var(--fs-m)}
+  .portrow input{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:6px 8px;width:110px;
+    font-family:var(--font-mono);font-size:var(--fs-s)}
+  .note{font-size:var(--fs-xs);color:var(--muted)}
+  .note b{color:var(--text);font-weight:600}
+  .portrow .note{font-size:var(--fs-xs);color:var(--muted)}
+  .pairrow{display:grid;grid-template-columns:170px 1fr 1fr 24px 24px 24px;gap:8px;
+    margin-bottom:6px}
+  .pairrow.headrow{font-size:var(--fs-xs);color:var(--muted);font-weight:600;margin-bottom:2px}
+  .pairrow input{background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:6px 8px;font-family:var(--font-mono);font-size:var(--fs-s);
+    width:100%}
+  .pairrow input.name{font-family:inherit;font-size:var(--fs-s)}
+  .pairrow .del,.pairrow .mv{background:var(--panel2);border:1px solid var(--border);
+    border-radius:6px;cursor:pointer;font-size:var(--fs-m);width:24px;padding:0}
+  .pairrow .del{color:var(--red)}
+  .pairrow .mv{color:var(--text)}
+  #settings .foot{display:flex;gap:10px;align-items:center;padding:12px 20px;
+    border-top:1px solid var(--border);background:var(--panel);flex-shrink:0}
+  .btn{border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:var(--fs-m)}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+  #cfg-status{font-size:var(--fs-s);margin-left:auto;align-self:center}
+
+  /* Settings collapsible blocks */
+  details.setblock{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+    margin:0 0 12px;overflow:hidden}
+  details.setblock>summary{background:var(--panel2);padding:10px 14px;cursor:pointer;
+    font-weight:600;font-size:var(--fs-m);list-style:none}
+  details.setblock>summary::-webkit-details-marker{display:none}
+  details.setblock>summary .desc{display:block;font-size:var(--fs-xs);color:var(--muted);
+    font-weight:400;margin-top:2px}
+  details.setblock>div.sbody{padding:12px 14px}
+  .exrow{display:flex;align-items:center;gap:8px;font-size:var(--fs-m);margin:5px 0;cursor:pointer}
+  .exrow input{accent-color:var(--accent)}
+  .author{font-size:var(--fs-xs);color:var(--muted);margin-top:18px;padding-top:10px;
+    border-top:1px solid var(--border)}
+  /* display_kind tag in a message header */
+  .msg .mhead .dk{font-size:var(--fs-xs);color:var(--muted);font-weight:400;white-space:nowrap}
+  /* Sidebar logo icon */
+  #side h1 .logo{width:18px;height:18px;vertical-align:-3px;margin-right:2px;border-radius:4px}
+
+  /* Gate / errors */
+  #gate{position:fixed;inset:0;background:var(--bg);display:none;z-index:50;
+    align-items:center;justify-content:center;flex-direction:column;gap:14px}
+  #gate .gate-hint{font-size:var(--fs-s);color:var(--muted);max-width:540px;text-align:center;
+    line-height:1.55;padding:0 12px}
+  #gate .gate-hint b{color:var(--text)}
+  #gate .gate-hint ol{margin:10px auto 6px;padding-left:24px;text-align:left}
+  #gate .gate-hint li{margin:6px 0}
+  #gate code{font-family:var(--font-mono);font-size:var(--fs-xs);
+    background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+  #gate input{border:1px solid var(--border);background:var(--panel);color:var(--text);
+    padding:10px 14px;border-radius:8px;width:320px}
+  #gate button{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer}
+  #gate-err{color:var(--red);font-size:var(--fs-s)}
+  #empty{color:var(--muted);text-align:center;padding:40px;font-size:var(--fs-s)}
+
+  /* ── Setup wizard (single window) ── */
+  #setup{position:fixed;inset:0;background:var(--bg);display:none;z-index:60;
+    align-items:center;justify-content:center}
+  #setup .card{width:600px;max-width:92vw;max-height:92vh;overflow-y:auto;background:var(--panel);
+    border:1px solid var(--border);border-radius:14px;padding:22px 26px}
+  #setup .ttl{font-size:var(--fs-l);font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  #setup .ttl .logo{width:20px;height:20px;border-radius:4px}
+  #setup .lead{font-size:var(--fs-s);color:var(--muted);margin:0 0 16px;line-height:1.5}
+  #setup .fld{margin-bottom:14px}
+  #setup .fld .fl{font-size:var(--fs-m);font-weight:600;margin-bottom:2px}
+  #setup .fld .fh{font-size:var(--fs-xs);color:var(--muted);margin-bottom:6px}
+  #setup .fld .opt{font-size:var(--fs-xs);color:var(--muted);border:1px solid var(--border);
+    border-radius:8px;padding:0 6px;margin-left:6px;font-weight:400}
+  #setup .fld .row{display:flex;gap:8px}
+  #setup .fld input{flex:1;width:100%;background:var(--panel2);border:1px solid var(--border);
+    color:var(--text);border-radius:8px;padding:8px 10px;font-size:var(--fs-m)}
+  #setup .fld input.narrow{flex:0 0 130px;width:130px}
+  #setup .fld .stat{font-size:var(--fs-s);margin-top:5px;min-height:16px}
+  #setup .note{font-size:var(--fs-xs);color:var(--muted);margin:4px 0 14px}
+  #setup .btns{display:flex;gap:10px}
+  #setup-err{font-size:var(--fs-s);margin-top:10px;min-height:16px}
+  /* Wide text inputs in Settings (paths, URLs) */
+  .portrow input.wide{width:420px;max-width:55%;font-family:var(--font-mono);font-size:var(--fs-s)}
+  #loading{color:var(--muted);text-align:center;padding:20px}
+
+/* ── Utilities & shared components (Design System) ── */
+#gate.open,#setup.open{display:flex}
+.hidden{display:none!important}
+.mt-8{margin-top:var(--sp-2)}
+.ml-auto{margin-left:auto}
+.lh-relaxed{line-height:1.55}
+.h-lg{font-size:var(--fs-l)}
+.sub-note{font-size:var(--fs-s);color:var(--muted);margin-bottom:10px}
+.muted-note{color:var(--muted);font-size:var(--fs-s);padding:6px 0}
+.date-label{font-size:var(--fs-xs);color:var(--muted);text-align:center;padding:var(--sp-1)}
+.status-ok{color:var(--green)}
+.status-err{color:var(--red)}
+.status-warn{color:var(--yellow)}
+.status-info{color:var(--muted)}
+a.footer-link{color:inherit;text-decoration:underline}

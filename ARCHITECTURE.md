@@ -249,6 +249,91 @@ recommended without a reverse proxy or firewall).
 
 ---
 
+## Design System
+
+All styling lives in `static/style.css` — no inline CSS in HTML or JS. The design
+language is a dark GitHub-style palette with a compact, monospace-accented look.
+
+### Color palette (CSS custom properties)
+
+| Token | Hex | Usage |
+|---|---|---|
+| `--bg` | `#0d1117` | page background |
+| `--panel` | `#161b22` | sidebar, modal cards, panels |
+| `--panel2` | `#1c212a` | hover surfaces |
+| `--border` | `#30363d` | borders, separators, scrollbar thumb |
+| `--text` | `#e6edf3` | primary text |
+| `--muted` | `#8b949e` | secondary text, labels, hints |
+| `--accent` | `#58a6ff` | active session, session ids, focus, drag handle |
+| `--green` | `#3fb950` | success status, inject counters |
+| `--red` | `#f85149` | errors |
+| `--yellow` | `#d29922` | warnings |
+| `--purple` | `#a371f7` | reserved semantic accent |
+| `--cyan` | `#39c5cf` | reserved semantic accent |
+
+Derived overlays: `rgba(13,17,23,.55)` chip background, `rgba(255,255,255,.18)`
+chip border, `rgba(255,255,255,.85)` text on accent, `rgba(57,197,207,.06)` and
+`rgba(163,113,247,.06)` tinted block backgrounds.
+
+Rules: colors are picked from the tokens only; no new hex values in components.
+Status semantics: green = success, red = error, yellow = warning, muted =
+neutral/progress. Links inside UI copy use the inherited text color with an
+underline (`a.footer-link`), not the browser default blue.
+
+### Typography
+
+- UI font: `--font-ui` (`-apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif`)
+- Mono font: `--font-mono` (`ui-monospace, Consolas, monospace`) — session ids,
+  code, token paths, prompt text
+- Size scale: `--fs-xs` 11px (labels, meta, dates), `--fs-s` 12.5px (base body
+  and settings text), `--fs-m` 13px (prompt/pre text), `--fs-l` 15px (h1/h2 and
+  modal titles). Line-height: 1.5 base, 1.3 compact (session titles), 1.55
+  relaxed (notes).
+
+### Spacing
+
+Scale `--sp-1` 4px, `--sp-2` 8px, `--sp-3` 12px, `--sp-4` 20px. Typical paddings:
+session rows 10px 12px, page header 12px 20px, gaps 8px. Border radius follows
+existing components (4px small controls, 8px chips, 14px modal cards).
+
+### Status messages and visibility
+
+JS never sets colors or display directly:
+
+- `setMsg(el, text, kind)` with `.status-ok` / `.status-err` / `.status-warn` /
+  `.status-info` classes for all status lines (settings save, setup wizard,
+  server controls).
+- `.hidden` utility for show/hide of ordinary blocks; `#gate.open` /
+  `#setup.open` for modals (CSS defaults keep them closed).
+- The only permitted runtime style is the config-driven per-level indent
+  (`margin-left` computed from `indent_px`).
+
+### Emoji conventions
+
+| Emoji | Meaning |
+|---|---|
+| ✓ | success / connected |
+| ✗ | error / failure |
+| ✕ | close / delete row |
+| ⬇️ | injection count badge |
+| 🧩 | tag pairs / injections |
+| 👤 | user message |
+| ⚙ | settings |
+| ⟳ | restart |
+| ⏹ | stop |
+| 🔐 | auth / token |
+| 💾 | save |
+
+Rules: a status emoji pairs with the matching status color (✓+green, ✗+red);
+one emoji per control; emoji carry meaning, they are not decoration.
+
+### Extending
+
+New styling goes to `static/style.css` and uses the tokens above. Inline
+`style=""` attributes and JS `style.*` assignments are not allowed.
+
+---
+
 ## Limitations
 
 - **No byte-level LLM call capture.** The monitor reads only what Hermes wrote to `state.db` —

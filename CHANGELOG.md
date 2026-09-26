@@ -5,6 +5,28 @@ Version format: `vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD)`.
 Historical versions (0.01.00–0.10.00) were recorded in the old scheme (X.YZ) and
 are kept here as-is.
 
+## v0.33.0 (2026.09.26)
+
+**Design system (UI refactor):**
+
+1. **External stylesheet**: all CSS moved from `static/index.html` into
+   `static/style.css`; inline `style=""` attributes and JS color assignments
+   replaced with utility classes (`.hidden`, `.open`, `.mt-8`, `.h-lg`,
+   `.status-*`, …). The only runtime style left is the config-driven per-level
+   indent.
+2. **Design tokens**: typography (`--fs-xs/s/m/l`, `--font-ui`, `--font-mono`)
+   and spacing (`--sp-1..4`) added next to the palette custom properties; font
+   sizes across the stylesheet now use the tokens.
+3. **Status messages**: unified `setMsg()` helper with `.status-ok/err/warn/info`
+   classes instead of per-call JS colors (settings save, setup wizard, server
+   controls).
+4. **Footer GitHub link** styled as a text-colored underlined link
+   (`.footer-link`) to match the palette instead of the default browser blue.
+5. **UI subtitle** updated to "diagnosing harness & memory injections into
+   AI-agent sessions".
+6. **ARCHITECTURE.md**: new "Design System" section documenting the palette,
+   typography, spacing, status classes, and emoji conventions.
+
 ## v0.32.1 (2026.09.26)
 
 **Polish for the first public release:**
