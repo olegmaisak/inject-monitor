@@ -65,7 +65,8 @@
   <div id="maincol">
     <div id="main"></div>
     <div id="bottombar">
-      <button id="jump-bottom" onclick="scrollToBottom()" title="Jump to the latest messages of the session">⬇ Scroll to bottom</button>
+      <button id="scroll-up" onclick="scrollToTop()" title="Jump to the first message of the session">Scroll ⬆️</button>
+      <button id="scroll-down" onclick="scrollToBottom()" title="Jump to the latest messages of the session">Scroll ⬇</button>
     </div>
   </div>
   <div id="settings">
@@ -114,13 +115,8 @@
           <div class="mt-8"><button class="btn ghost" onclick="addPairRow()">+ Add pair</button></div>
         </div>
       </details>
-      <details class="setblock" id="set-expansion">
-        <summary><span class="tri"></span>Default expansion
-          <span class="desc">Which collapsible elements are expanded when a session opens.</span></summary>
-        <div class="sbody" id="expandrows"></div>
-      </details>
       <details class="setblock" id="set-sessionlist">
-        <summary><span class="tri"></span>Session list
+        <summary><span class="tri"></span>Sessions list
           <span class="desc">How many recent sessions to load into the sidebar on start/refresh.</span></summary>
         <div class="sbody">
           <div class="portrow"><span>Recent sessions:</span>
@@ -128,14 +124,23 @@
             <span class="note">1..500, applies after Save</span></div>
         </div>
       </details>
-      <details class="setblock" id="set-indent">
-        <summary><span class="tri"></span>Message indentation
-          <span class="desc">Left indent per message type, px per level: System prompt 0, User 0, Assistant → Tool call 1, Tool result 2, Assistant 1.</span></summary>
+      <details class="setblock" id="set-sessionpanel">
+        <summary><span class="tri"></span>Session panel
+          <span class="desc">Short display options for the panel of the open session.</span></summary>
         <div class="sbody">
+          <label class="exrow"><input type="checkbox" id="autoDefaultInput"> Auto mode is ON when a session opens</label>
+          <div class="opt-note">Toggles the Auto button automatically on every session open. Applies after Save.</div>
+          <hr class="sep">
           <div class="portrow"><span>Indent per level (px):</span>
             <input id="indentInput" type="number" min="0" max="120" placeholder="14">
             <span class="note">level × value, applies after Save</span></div>
+          <div class="opt-note">Left indent per message type, px per level: System prompt 0, User 0, Assistant → Tool call 1, Tool result 2, Assistant 1.</div>
         </div>
+      </details>
+      <details class="setblock" id="set-expansion">
+        <summary><span class="tri"></span>Default expansion of collapsible elements
+          <span class="desc">Which collapsible elements are expanded when a session opens.</span></summary>
+        <div class="sbody" id="expandrows"></div>
       </details>
       <div class="author" id="authorline"></div>
     </div>
@@ -152,10 +157,12 @@ var TOKEN = localStorage.getItem("im_token") || "";
 (function(){ var m=location.search.match(/[?&]token=([^&]+)/); if(m) TOKEN=m[1]; })();
 var STATE = {sessions: [], active: null, data: null};
 var PAIRS = []; // trigger tag pairs from the server (config.json)
-var APP_VERSION = "1.1.1";
+var APP_VERSION = "1.2.2";
 // Left indent per message type: level × INDENT_PX
 // (0 = System prompt/User, 1 = Assistant/Assistant→tool call, 2 = Tool result)
 var INDENT_PX = 14;
+// Auto button default state on session open (Settings → Session panel)
+var AUTO_DEFAULT = false;
 // Default expansion of collapsible elements (Settings → Default expansion)
 var EXPAND = {
   sysprompt:false, user:true, assistant:false, toolcall:false, toolresult:false,
@@ -221,8 +228,8 @@ function relTime(ts){
 // ── Tag-pair config ──
 var VIEW = "session"; // "session" | "settings"
 // Which Settings blocks are expanded (persisted in config.json as settings_open)
-var SETTINGS_BLOCK_IDS = ["server", "datasource", "pairs", "expansion",
-                          "sessionlist", "indent"];
+var SETTINGS_BLOCK_IDS = ["server", "datasource", "pairs", "sessionlist",
+                          "sessionpanel", "expansion"];
 var SETTINGS_OPEN = ["server"]; // default: only Server is expanded
 function showView(v){
   VIEW=v;
@@ -241,6 +248,7 @@ function openSettings(){
     }
     document.getElementById("indentInput").value=INDENT_PX;
     document.getElementById("sessionsLimitInput").value=res.sessions_limit||50;
+    document.getElementById("autoDefaultInput").checked = !!res.auto_default;
     document.getElementById("dbPathInput").value=res.db_path||"";
     document.getElementById("tokenFileInput").value=res.token_file||"";
     // Restore which Settings blocks are expanded (persisted in config.json)
@@ -300,12 +308,25 @@ function restartServer(){
     .catch(e=>{ srvStatus("✗ "+esc(e),"err"); });
 }
 function closeSettings(){ showView("session"); }
-// "Scroll to bottom" (bottom bar): jump to the latest messages of the session.
-// Instant (not smooth) on purpose: on very long sessions a smooth scroll
-// across tens of thousands of pixels is slow and janky.
+// "Scroll up" / "Scroll down" (bottom bar): jump between the two ends of the
+// session. Instant (not smooth) on purpose: on very long sessions a smooth
+// scroll across tens of thousands of pixels is slow and janky.
+function scrollToTop(){
+  var m=document.getElementById("main");
+  m.scrollTop=0;
+}
 function scrollToBottom(){
   var m=document.getElementById("main");
   m.scrollTop=m.scrollHeight;
+}
+// Session panel option "Auto mode is ON when a session opens": on every
+// session open (full render path) enable the Auto button if the config asks
+// for it. Default-off does NOT force-disable a manually enabled Auto.
+function applyAutoDefault(){
+  if(AUTO_DEFAULT && !window._auto){
+    var ab=document.getElementById("auto");
+    if(ab) toggleAuto(ab);
+  }
 }
 function setExpand(k,v){ EXPAND[k]=v; }
 function renderExpandRows(){
@@ -382,6 +403,9 @@ function saveSettings(){
     }
     body.sessions_limit=sl;
   }
+  // Session panel: Auto button default state on session open
+  var adEl=document.getElementById("autoDefaultInput");
+  if(adEl) body.auto_default=!!adEl.checked;
   // default expansion of collapsible elements
   var expand={};
   EXPAND_LABELS.forEach(it=>{ expand[it[0]]=!!EXPAND[it[0]]; });
@@ -396,6 +420,7 @@ function saveSettings(){
       body:JSON.stringify(body)})
     .then(res=>{
       PAIRS=res.tag_pairs||[];
+      if(typeof res.auto_default==="boolean") AUTO_DEFAULT=res.auto_default;
       if(Number.isFinite(parseInt(res.indent_px,10))) INDENT_PX=parseInt(res.indent_px,10);
       if(res.expand && typeof res.expand==="object"){
         Object.keys(EXPAND).forEach(k=>{ if(typeof res.expand[k]==="boolean") EXPAND[k]=res.expand[k]; });
@@ -494,7 +519,7 @@ function loadSession(id, rerenderSide){
     // different session → full re-render.
     var same = STATE.data && STATE.data.session && STATE.data.session.id===id;
     if(same) mergeMessages(res);
-    else { STATE.data=res; renderMain(); }
+    else { STATE.data=res; renderMain(); applyAutoDefault(); }
     if(rerenderSide) renderSidebar();
   }).catch(e=>{});
 }
@@ -791,6 +816,7 @@ document.getElementById("authorline").innerHTML =
   +"<a class='footer-link' href='https://github.com/olegmaisak/inject-monitor' target='_blank' rel='noopener'>GitHub</a>";
 
 function applyConfig(c){
+  if(typeof c.auto_default==="boolean") AUTO_DEFAULT=c.auto_default;
   if(Number.isFinite(parseInt(c.indent_px,10))) INDENT_PX=parseInt(c.indent_px,10);
   if(c.expand && typeof c.expand==="object"){
     Object.keys(EXPAND).forEach(k=>{ if(typeof c.expand[k]==="boolean") EXPAND[k]=c.expand[k]; });

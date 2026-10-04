@@ -4,6 +4,7 @@
   "token_file": "inject-monitor-token",
   "side_width": 320,
   "indent_px": 14,
+  "auto_default": false,
   "expand": {
     "sysprompt": false,
     "user": true,

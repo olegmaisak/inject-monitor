@@ -111,13 +111,25 @@ step.
 
 ### Settings panel
 
-Accessible from the toolbar. Collapsible blocks controlled by `settings_open` in config:
+Accessible from the toolbar. Blocks in this visual order (HTML order):
 - **Server** — status, stop/restart buttons.
 - **Data source** — DB path with Test button.
 - **Injection trigger tag pairs** — add, edit, remove, reorder.
-- **Default expansion** — per-message-type collapse defaults.
-- **Session list** — `sessions_limit` slider.
-- **Message indentation** — `indent_px` control.
+- **Sessions list** — `sessions_limit`.
+- **Session panel** — short display options of the open session: Auto-on-open
+  default (`auto_default`) and message indentation (`indent_px`).
+- **Default expansion of collapsible elements** — per-message-type collapse
+  defaults.
+
+Rules:
+- Blocks whose open/collapsed state is persisted are listed in
+  `SETTINGS_BLOCK_IDS` in the UI; a new block id must be registered there
+  (unknown ids are filtered out on load, so an unregistered block loses state).
+- **Large blocks stay separate.** A Settings block with many options inside
+  (visually large, e.g. *Default expansion of collapsible elements*) remains
+  its own block even when its options logically belong to the session panel.
+- Inside one block, logically distinct settings are separated by a hairline
+  divider `hr.sep` (see Design System → Settings blocks and separators).
 
 ### Filtering
 
@@ -183,6 +195,7 @@ All environment settings live in `config.json` next to `monitor.py`.
 | `sessions_limit` | `50` | Max sessions in the sidebar list (1–500). |
 | `side_width` | `320` | Left panel width in pixels (200–2000). |
 | `indent_px` | `14` | Indentation per level in pixels (0–120). |
+| `auto_default` | `false` | Auto refresh button is ON when a session opens. |
 | `expand` | All `false` except `user` | Default expansion per message type. |
 | `settings_open` | `["server"]` | Settings blocks open on page load. |
 | `tag_pairs` | 7 built-in pairs | Injection recognition markers (see Injection Parsing). Built-in defaults cover Hermes system-prompt sections: Hermes system prompt, `<available_skills>`, SOUL.md, MEMORY.md, USER.md, Hermes runtime environment, Conversation started. |
@@ -191,9 +204,16 @@ On first start `config.json` is created from `config.default.json` (if present) 
 `BUILTIN_DEFAULTS` in `monitor.py`. The file is **never overwritten** after creation — user
 settings persist across updates and `git pull`.
 
-Port, `side_width`, `indent_px`, `sessions_limit`, `db_path`, `token_file`, `tag_pairs`,
-`expand`, and `settings_open` can be changed via the Settings panel. Port change requires a
-restart.
+Port, `side_width`, `indent_px`, `auto_default`, `sessions_limit`, `db_path`, `token_file`,
+`tag_pairs`, `expand`, and `settings_open` can be changed via the Settings panel. Port change
+requires a restart.
+
+**Rule — Settings changes vs shipped defaults.** When a Settings block or option is added or
+changed in the UI code, the default MUST be reflected in **both** default carriers:
+`config.default.json` (the user-visible copy created on first run) and `BUILTIN_DEFAULTS` in
+`monitor.py` (the fallback if the file is missing). They are kept in sync. Before finishing the
+change, check what a fresh installation gets — a UI option without a shipped default is an
+incomplete change.
 
 ---
 
@@ -269,7 +289,8 @@ language is a dark GitHub-style palette with a compact, monospace-accented look.
 | `--border` | `#30363d` | borders, separators, scrollbar thumb |
 | `--text` | `#e6edf3` | primary text |
 | `--muted` | `#8b949e` | secondary text, labels, hints |
-| `--accent` | `#58a6ff` | active session, session ids, focus, drag handle, primary action buttons |
+| `--accent` | `#58a6ff` | active session, session ids, focus, drag handle, hover/outline accent |
+| `--accent-strong` | `#1f6feb` | solid primary buttons (darker accent for white-text contrast) |
 | `--green` | `#3fb950` | success status, inject counters |
 | `--red` | `#f85149` | errors |
 | `--yellow` | `#d29922` | warnings |
@@ -306,14 +327,23 @@ existing components (4px small controls, 8px chips, 14px modal cards).
 Two button families, one hover rule each (no per-button exceptions):
 
 - **Solid** (primary actions): `⟳ Refresh` (`--purple`), `💾 Save` /
-  `⬇ Scroll to bottom` / gate sign-in (`--accent`), white text. Hover:
-  `filter: brightness(1.18)`.
+  `Scroll ⬆️` / `Scroll ⬇` / gate sign-in (`--accent-strong` — darker accent,
+  kept for white-text contrast). Hover: `filter: brightness(1.18)`.
 - **Outline/ghost** (secondary actions): `Auto`, `⚙ Settings`, `.btn.ghost`
   (`--panel2` background, `--border` outline). Hover: border + text turn
   `--accent`; the Auto "on" state keeps its green (`:hover:not(.on)`).
 
-The bottom bar is a status-bar-like strip: its action button is right-aligned
-(`justify-content:flex-end`).
+The bottom bar is a status-bar-like strip: its action buttons (`Scroll ⬆️` /
+`Scroll ⬇`) are right-aligned (`justify-content:flex-end`).
+
+### Settings blocks and separators
+
+Inside one Settings block, logically distinct settings are separated by a
+hairline divider `hr.sep` (border-top `--border`, 12px vertical margins) —
+no heading, just the line. The option label is the prominent part
+(`.exrow` / `.portrow`, `--fs-m`); its explanation is the dim small line
+`.opt-note` (`--fs-xs`, `--muted`) placed under the option. The
+label-prominent / hint-dim hierarchy applies everywhere settings are shown.
 
 ### Status messages and visibility
 

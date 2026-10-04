@@ -4,8 +4,8 @@
 Inject Monitor — web UI for diagnosing memory injections into Hermes LLM requests.
 
 Author: Oleg Maisak (idea & vibe coding) + Lex (coding agent, via Hermes Agent)
-Version: 1.1.1
-Date: 2026-10-04
+Version: 1.2.2
+Date: 2026-10-05
 
 Purpose:
   Reads the Hermes session database (SQLite, READ-ONLY) and shows:
@@ -29,7 +29,8 @@ Launch:
 Config:
     All environment-dependent settings live in config.json next to
     monitor.py: port, db_path, token_file, sessions_limit, side_width,
-    indent_px, expand (default expansion), tag_pairs.
+    indent_px, auto_default (Auto button state on session open),
+    expand (default expansion), tag_pairs.
     The monitor is memory-PROVIDER-INDEPENDENT: injections are recognized
     by tag pairs from the config and read from the agent's session DB only.
     On first run config.json is created from config.default.json
@@ -103,6 +104,7 @@ BUILTIN_DEFAULTS = {
     "sessions_limit": 50,
     "side_width": 320,
     "indent_px": DEFAULT_INDENT_PX,
+    "auto_default": False,
     "expand": DEFAULT_EXPAND,
     "tag_pairs": [
             {
@@ -867,6 +869,7 @@ class Handler(BaseHTTPRequestHandler):
                 "side_width": cfg.get("side_width", 320),
                 "tag_pairs": load_tag_pairs(),
                 "indent_px": cfg.get("indent_px", DEFAULT_INDENT_PX),
+                "auto_default": bool(cfg.get("auto_default", False)),
                 "expand": _norm_expand(cfg.get("expand")),
                 "settings_open": _norm_settings_open(cfg.get("settings_open")),
             })
@@ -975,6 +978,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": err}, 400)
                 return
 
+            # Session panel: Auto button default state on session open
+            new_auto_default = None
+            if "auto_default" in body:
+                new_auto_default = bool(body.get("auto_default"))
+
             # String path fields: non-empty strings
             def _str_field(key):
                 if key not in body:
@@ -1035,6 +1043,8 @@ class Handler(BaseHTTPRequestHandler):
                                 else cfg.get("indent_px", DEFAULT_INDENT_PX))
             out["sessions_limit"] = (new_sessions_limit if new_sessions_limit is not None
                                      else cfg.get("sessions_limit", BUILTIN_DEFAULTS["sessions_limit"]))
+            out["auto_default"] = (new_auto_default if new_auto_default is not None
+                                   else cfg.get("auto_default", False))
             out["expand"] = (new_expand if new_expand is not None
                              else cfg.get("expand", DEFAULT_EXPAND))
             out["settings_open"] = (new_settings_open if new_settings_open is not None
@@ -1057,6 +1067,7 @@ class Handler(BaseHTTPRequestHandler):
                 "token_file": out["token_file"],
                 "tag_pairs": load_tag_pairs(),
                 "indent_px": out["indent_px"],
+                "auto_default": out["auto_default"],
                 "expand": _norm_expand(out["expand"]),
                 "settings_open": _norm_settings_open(out["settings_open"]),
             })

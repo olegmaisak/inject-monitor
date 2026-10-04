@@ -4,7 +4,7 @@
    see ARCHITECTURE.md → Design System. */
   :root{
     --bg:#0d1117; --panel:#161b22; --panel2:#1c212a; --border:#30363d;
-    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --green:#3fb950;
+    --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --accent-strong:#1f6feb; --green:#3fb950;
     --red:#f85149; --yellow:#d29922; --purple:#a371f7; --cyan:#39c5cf;
     /* typography scale */
     --fs-xs:11px; --fs-s:12.5px; --fs-m:13px; --fs-l:15px;
@@ -63,14 +63,14 @@
   #main{flex:1;min-height:0;overflow-y:auto;padding:0 0 40px;
     scrollbar-width:thin;scrollbar-color:var(--border) transparent}
   #bottombar{flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;
-    padding:6px 20px;background:var(--panel);border-top:1px solid var(--border)}
-  #jump-bottom{background:var(--accent);color:#fff;border:none;
+    gap:8px;padding:6px 20px;background:var(--panel);border-top:1px solid var(--border)}
+  #scroll-up,#scroll-down{background:var(--accent-strong);color:#fff;border:none;
     padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:var(--fs-s)}
 
   /* Button hover convention (single rule per family, no per-button exceptions):
      solid fills brighten slightly on hover; outline/ghost buttons take the
      accent border + text. */
-  #refresh:hover,.btn.primary:hover,#gate button:hover,#jump-bottom:hover{filter:brightness(1.18)}
+  #refresh:hover,.btn.primary:hover,#gate button:hover,#scroll-up:hover,#scroll-down:hover{filter:brightness(1.18)}
   #auto:not(.on):hover,#cfgbtn:hover,.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
   #top{margin:0;padding:12px 20px 8px;position:sticky;top:0;background:var(--bg);z-index:5;
     border-bottom:1px solid var(--border)}
@@ -202,7 +202,7 @@
   #settings .foot{display:flex;gap:10px;align-items:center;padding:12px 20px;
     border-top:1px solid var(--border);background:var(--panel);flex-shrink:0}
   .btn{border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:var(--fs-m)}
-  .btn.primary{background:var(--accent);color:#fff}
+  .btn.primary{background:var(--accent-strong);color:#fff}
   .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
   #cfg-status{font-size:var(--fs-s);margin-left:auto;align-self:center}
 
@@ -215,6 +215,9 @@
   details.setblock>summary .desc{display:block;font-size:var(--fs-xs);color:var(--muted);
     font-weight:400;margin-top:2px}
   details.setblock>div.sbody{padding:12px 14px}
+  /* In-block settings separator + small description line under an option */
+  details.setblock hr.sep{border:none;border-top:1px solid var(--border);margin:12px 0}
+  .opt-note{font-size:var(--fs-xs);color:var(--muted);margin:2px 0 0;line-height:1.5}
   .exrow{display:flex;align-items:center;gap:8px;font-size:var(--fs-m);margin:5px 0;cursor:pointer}
   .exrow input{accent-color:var(--accent)}
   .author{font-size:var(--fs-xs);color:var(--muted);margin-top:18px;padding-top:10px;
@@ -236,7 +239,7 @@
     background:var(--panel2);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
   #gate input{border:1px solid var(--border);background:var(--panel);color:var(--text);
     padding:10px 14px;border-radius:8px;width:320px}
-  #gate button{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer}
+  #gate button{background:var(--accent-strong);color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer}
   #gate-err{color:var(--red);font-size:var(--fs-s)}
   #empty{color:var(--muted);text-align:center;padding:40px;font-size:var(--fs-s)}
 

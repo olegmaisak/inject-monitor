@@ -5,6 +5,23 @@ Version format: `vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD)`.
 This file lists the significant milestones of the project. For the full commit
 history see [GitHub commits](https://github.com/olegmaisak/inject-monitor/commits/main).
 
+## v1.2.2 (2026.10.05) — Scroll ⬆️/⬇ buttons, Session panel settings
+
+- Bottom bar: added `Scroll ⬆️` (jump to the first message) next to `Scroll ⬇`;
+  labels shortened, buttons renamed in code (`#scroll-up` / `#scroll-down`).
+- New Settings block **Session panel** (after **Sessions list**): Auto-on-open
+  default (`auto_default`, default **off**) and message indentation moved in
+  from the removed *Message indentation* block; logically distinct settings
+  inside one block are separated by a hairline divider (`hr.sep`).
+- Solid accent buttons use the darker `--accent-strong` (`#1f6feb`) for
+  white-text contrast.
+- Clarity renames: *Session list* → *Sessions list*; *Default expansion* →
+  *Default expansion of collapsible elements* (stays a separate block — it is
+  visually large).
+- ARCHITECTURE: Settings-blocks rules (visual order, large-blocks-stay-separate,
+  in-block separators) and the "Settings changes vs shipped defaults" rule
+  (`config.default.json` + `BUILTIN_DEFAULTS` must cover every option).
+
 ## v1.1.1 (2026.10.04) — scroll-to-bottom bar polish (UI feedback)
 
 Button moved to the right edge of the bar (status-bar convention) and restyled
