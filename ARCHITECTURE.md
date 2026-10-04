@@ -269,7 +269,7 @@ language is a dark GitHub-style palette with a compact, monospace-accented look.
 | `--border` | `#30363d` | borders, separators, scrollbar thumb |
 | `--text` | `#e6edf3` | primary text |
 | `--muted` | `#8b949e` | secondary text, labels, hints |
-| `--accent` | `#58a6ff` | active session, session ids, focus, drag handle |
+| `--accent` | `#58a6ff` | active session, session ids, focus, drag handle, primary action buttons |
 | `--green` | `#3fb950` | success status, inject counters |
 | `--red` | `#f85149` | errors |
 | `--yellow` | `#d29922` | warnings |
@@ -300,6 +300,20 @@ underline (`a.footer-link`), not the browser default blue.
 Scale `--sp-1` 4px, `--sp-2` 8px, `--sp-3` 12px, `--sp-4` 20px. Typical paddings:
 session rows 10px 12px, page header 12px 20px, gaps 8px. Border radius follows
 existing components (4px small controls, 8px chips, 14px modal cards).
+
+### Buttons and hover
+
+Two button families, one hover rule each (no per-button exceptions):
+
+- **Solid** (primary actions): `⟳ Refresh` (`--purple`), `💾 Save` /
+  `⬇ Scroll to bottom` / gate sign-in (`--accent`), white text. Hover:
+  `filter: brightness(1.18)`.
+- **Outline/ghost** (secondary actions): `Auto`, `⚙ Settings`, `.btn.ghost`
+  (`--panel2` background, `--border` outline). Hover: border + text turn
+  `--accent`; the Auto "on" state keeps its green (`:hover:not(.on)`).
+
+The bottom bar is a status-bar-like strip: its action button is right-aligned
+(`justify-content:flex-end`).
 
 ### Status messages and visibility
 

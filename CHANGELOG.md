@@ -5,6 +5,13 @@ Version format: `vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD)`.
 This file lists the significant milestones of the project. For the full commit
 history see [GitHub commits](https://github.com/olegmaisak/inject-monitor/commits/main).
 
+## v1.1.1 (2026.10.04) — scroll-to-bottom bar polish (UI feedback)
+
+Button moved to the right edge of the bar (status-bar convention) and restyled
+as a solid accent-filled button. Introduced a single hover convention for all
+buttons (solid → brightness, outline/ghost → accent border + text) — previously
+hover feedback existed only on the new button.
+
 ## v1.1.0 (2026.10.04) — scroll-to-bottom bar
 
 Bottom navigation bar under the open session: one click on **⬇ Scroll to

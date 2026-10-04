@@ -152,7 +152,7 @@ var TOKEN = localStorage.getItem("im_token") || "";
 (function(){ var m=location.search.match(/[?&]token=([^&]+)/); if(m) TOKEN=m[1]; })();
 var STATE = {sessions: [], active: null, data: null};
 var PAIRS = []; // trigger tag pairs from the server (config.json)
-var APP_VERSION = "1.1.0";
+var APP_VERSION = "1.1.1";
 // Left indent per message type: level × INDENT_PX
 // (0 = System prompt/User, 1 = Assistant/Assistant→tool call, 2 = Tool result)
 var INDENT_PX = 14;
