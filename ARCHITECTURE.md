@@ -5,7 +5,7 @@ Reads the Hermes session database (SQLite, read-only) and shows what was actuall
 including both harness-built blocks (system-prompt sections, MEMORY.md/USER.md, skills, runtime
 environment) and memory-provider injections.
 
-**Version:** 0.32.1
+**Version:** 1.1.0
 
 ---
 
@@ -103,6 +103,11 @@ step.
   - `👾 Assistant` — response text, optional `💭 Reasoning`, tool-call blocks.
   - `🔧 Tool call` / `🔧 Tool result` — collapsed on open; details expand inside.
   - Injections render as `<details class="inj">` with full block text in `<pre>`.
+- **Bottom bar** — persistent strip under the timeline with a single
+  `⬇ Scroll to bottom` button: an instant jump to the latest messages. It is a
+  layout strip, not an overlay (`#maincol` wraps `#main` + `#bottombar`): it
+  never covers messages, the sticky header or the sidebar, and it survives
+  `renderMain()` re-renders.
 
 ### Settings panel
 

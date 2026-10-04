@@ -5,6 +5,14 @@ Version format: `vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD)`.
 This file lists the significant milestones of the project. For the full commit
 history see [GitHub commits](https://github.com/olegmaisak/inject-monitor/commits/main).
 
+## v1.1.0 (2026.10.04) — scroll-to-bottom bar
+
+Bottom navigation bar under the open session: one click on **⬇ Scroll to
+bottom** jumps to the latest messages. The bar sits in its own layout strip
+below the timeline (`#maincol` now wraps `#main` + `#bottombar`), so it never
+overlaps messages, the sticky header or the sidebar, and it survives
+`renderMain()` / Auto-refresh re-renders.
+
 ## v1.0.0 (2026.09.26) — first stable release
 
 Tagged stable release: the API, config keys, and UI behavior described in

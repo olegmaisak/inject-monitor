@@ -62,7 +62,12 @@
     <div class="foot" id="sidefoot"></div>
   </div>
   <div id="sizer" title="Drag to resize the panel"></div>
-  <div id="main"></div>
+  <div id="maincol">
+    <div id="main"></div>
+    <div id="bottombar">
+      <button id="jump-bottom" onclick="scrollToBottom()" title="Jump to the latest messages of the session">⬇ Scroll to bottom</button>
+    </div>
+  </div>
   <div id="settings">
     <div class="head">⚙ Settings
       <button class="btn ghost ml-auto" onclick="closeSettings()">✕ Close</button></div>
@@ -147,7 +152,7 @@ var TOKEN = localStorage.getItem("im_token") || "";
 (function(){ var m=location.search.match(/[?&]token=([^&]+)/); if(m) TOKEN=m[1]; })();
 var STATE = {sessions: [], active: null, data: null};
 var PAIRS = []; // trigger tag pairs from the server (config.json)
-var APP_VERSION = "1.0.0";
+var APP_VERSION = "1.1.0";
 // Left indent per message type: level × INDENT_PX
 // (0 = System prompt/User, 1 = Assistant/Assistant→tool call, 2 = Tool result)
 var INDENT_PX = 14;
@@ -221,7 +226,8 @@ var SETTINGS_BLOCK_IDS = ["server", "datasource", "pairs", "expansion",
 var SETTINGS_OPEN = ["server"]; // default: only Server is expanded
 function showView(v){
   VIEW=v;
-  document.getElementById("main").classList.toggle("hidden", v!=="session");
+  // The whole session column (timeline + bottom bar) toggles together
+  document.getElementById("maincol").classList.toggle("hidden", v!=="session");
   document.getElementById("settings").classList.toggle("panel-open", v==="settings");
 }
 function openSettings(){
@@ -294,6 +300,13 @@ function restartServer(){
     .catch(e=>{ srvStatus("✗ "+esc(e),"err"); });
 }
 function closeSettings(){ showView("session"); }
+// "Scroll to bottom" (bottom bar): jump to the latest messages of the session.
+// Instant (not smooth) on purpose: on very long sessions a smooth scroll
+// across tens of thousands of pixels is slow and janky.
+function scrollToBottom(){
+  var m=document.getElementById("main");
+  m.scrollTop=m.scrollHeight;
+}
 function setExpand(k,v){ EXPAND[k]=v; }
 function renderExpandRows(){
   var el=document.getElementById("expandrows");

@@ -53,9 +53,20 @@
     margin-left:-4px;z-index:10}
   #sizer:hover,#sizer.drag{background:var(--accent);opacity:.5}
 
-  /* ── Main column ── */
-  #main{flex:1;overflow-y:auto;padding:0 0 40px;min-width:0;
+  /* ── Main column: session timeline + bottom navigation bar ──
+     #maincol holds the scrollable timeline (#main) and the bottom bar.
+     The bar is a separate layout strip BELOW the scroll viewport (not an
+     overlay): it never covers messages, the sticky #top header or the
+     sidebar, and renderMain() (which replaces #main's content) cannot
+     remove it. */
+  #maincol{flex:1;min-width:0;display:flex;flex-direction:column}
+  #main{flex:1;min-height:0;overflow-y:auto;padding:0 0 40px;
     scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+  #bottombar{flex-shrink:0;display:flex;align-items:center;padding:6px 20px;
+    background:var(--panel);border-top:1px solid var(--border)}
+  #jump-bottom{background:var(--panel2);color:var(--text);border:1px solid var(--border);
+    padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:var(--fs-s)}
+  #jump-bottom:hover{border-color:var(--accent);color:var(--accent)}
   #top{margin:0;padding:12px 20px 8px;position:sticky;top:0;background:var(--bg);z-index:5;
     border-bottom:1px solid var(--border)}
   #top .row1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
