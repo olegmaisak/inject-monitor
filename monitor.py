@@ -61,7 +61,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.2.2"
 
 # ── Paths ───────────────────────────────────────────────────────────────────
 HOME = Path.home()
@@ -333,8 +333,8 @@ def _norm_expand(v):
 
 
 # Settings panel block ids (UI <details> blocks), in display order.
-SETTINGS_BLOCK_IDS = ["server", "datasource", "pairs", "expansion",
-                      "sessionlist", "indent"]
+SETTINGS_BLOCK_IDS = ["server", "datasource", "pairs", "sessionlist",
+                      "sessionpanel", "expansion"]
 # Default open state of the Settings blocks: only Server is expanded.
 DEFAULT_SETTINGS_OPEN = ["server"]
 
