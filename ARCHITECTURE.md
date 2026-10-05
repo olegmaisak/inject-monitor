@@ -395,7 +395,7 @@ JS never sets colors or display directly:
 | ✓ | success / connected |
 | ✗ | error / failure |
 | ✕ | close / delete row |
-| ⬇️ | injection count badge |
+| ⬇️ | injection count badge — ALWAYS `U+2B07 DOWNWARDS BLACK ARROW + U+FE0F VARIATION SELECTOR-16` (emoji presentation) |
 | 🧩 | tag pairs / injections / system prompt |
 | 👤 | user message |
 | 👾 | assistant message |
@@ -406,10 +406,24 @@ JS never sets colors or display directly:
 | ⏹ | stop |
 | 🔐 | auth / token |
 | 💾 | save |
-| ⬆ / ⬇ | bottom-bar navigation (Scroll ⬆ / Scroll ⬇, text-style arrows — same style for both) |
+| ⬆ / ⬇ | directional navigation (bottom-bar `Scroll ⬆` / `Scroll ⬇`) — ALWAYS plain `U+2B06 UPWARDS BLACK ARROW` / `U+2B07 DOWNWARDS BLACK ARROW` WITHOUT VS16 (text presentation) |
 
 Rules: a status emoji pairs with the matching status color (✓+green, ✗+red);
 one emoji per control; emoji carry meaning, they are not decoration.
+
+**Arrow disambiguation — pick by Unicode code, never by looks.** Visually
+similar arrows are different code points (or the same code point with/without a
+variation selector) and render differently in a browser:
+
+- **Injection badge** — always `⬇️` = `U+2B07 DOWNWARDS BLACK ARROW` +
+  `U+FE0F VARIATION SELECTOR-16` (emoji presentation, colorful), as in
+  `⬇️ 3 injection(s)`.
+- **Directional navigation** (the Scroll buttons, any future up/down control) —
+  always plain `U+2B06 UPWARDS BLACK ARROW` / `U+2B07 DOWNWARDS BLACK ARROW`
+  **without** the variation selector (text presentation, thin monochrome arrow
+  that matches the outlined button style). Never mix the two roles.
+- When documenting an emoji in this table, copy its exact Unicode name(s) into
+  the row so future edits pick the same character, not a look-alike.
 
 ### Extending
 
