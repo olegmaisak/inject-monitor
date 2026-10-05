@@ -5,6 +5,20 @@ Version format: `vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD)`.
 This file lists the significant milestones of the project. For the full commit
 history see [GitHub commits](https://github.com/olegmaisak/inject-monitor/commits/main).
 
+## v1.2.6 (2026.10.05) — UI polish: quiet scroll buttons, alignment, clearer indent option
+
+- `Scroll ⬆` / `Scroll ⬇` moved from the solid to the outline button family
+  (same look as `Auto` / `⚙ Settings`) — the bottom bar no longer competes with
+  `⟳ Refresh`, the single bright primary button of the session view.
+- The up-arrow emoji now matches the down one (`⬆️` → `⬆`, same text style).
+- The bar's right padding compensates the timeline scrollbar (`--scrollbar-w`,
+  10px) so the scroll buttons line up with the toolbar buttons to the pixel.
+- Default `indent_px` 14 → **28** (both `config.default.json` and
+  `BUILTIN_DEFAULTS`); the option renamed to **Message nesting indent (px)**.
+- ARCHITECTURE: new Design System rules — one primary button per screen,
+  geometry/grid checks for new elements (measure against neighbours, 1px =
+  defect), and option naming (clear + compact label, details in the dim note).
+
 ## v1.2.2 (2026.10.05) — Scroll ⬆️/⬇ buttons, Session panel settings
 
 - Bottom bar: added `Scroll ⬆️` (jump to the first message) next to `Scroll ⬇`;

@@ -3,7 +3,7 @@
   "db_path": "~/.hermes/state.db",
   "token_file": "inject-monitor-token",
   "side_width": 320,
-  "indent_px": 14,
+  "indent_px": 28,
   "auto_default": false,
   "expand": {
     "sysprompt": false,

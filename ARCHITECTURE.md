@@ -194,7 +194,7 @@ All environment settings live in `config.json` next to `monitor.py`.
 | `token_file` | `inject-monitor-token` | Token file path; relative values resolve against the monitor folder. |
 | `sessions_limit` | `50` | Max sessions in the sidebar list (1–500). |
 | `side_width` | `320` | Left panel width in pixels (200–2000). |
-| `indent_px` | `14` | Indentation per level in pixels (0–120). |
+| `indent_px` | `28` | Indentation per level in pixels (0–120). |
 | `auto_default` | `false` | Auto refresh button is ON when a session opens. |
 | `expand` | All `false` except `user` | Default expansion per message type. |
 | `settings_open` | `["server"]` | Settings blocks open on page load. |
@@ -326,15 +326,24 @@ existing components (4px small controls, 8px chips, 14px modal cards).
 
 Two button families, one hover rule each (no per-button exceptions):
 
-- **Solid** (primary actions): `⟳ Refresh` (`--purple`), `💾 Save` /
-  `Scroll ⬆️` / `Scroll ⬇` / gate sign-in (`--accent-strong` — darker accent,
-  kept for white-text contrast). Hover: `filter: brightness(1.18)`.
-- **Outline/ghost** (secondary actions): `Auto`, `⚙ Settings`, `.btn.ghost`
-  (`--panel2` background, `--border` outline). Hover: border + text turn
-  `--accent`; the Auto "on" state keeps its green (`:hover:not(.on)`).
+- **Solid** (the screen's primary action): `⟳ Refresh` (`--purple`), `💾 Save`
+  and gate sign-in (`--accent-strong` — darker accent, kept for white-text
+  contrast). Hover: `filter: brightness(1.18)`.
+- **Outline/ghost** (secondary actions): `Auto`, `⚙ Settings`, `.btn.ghost`,
+  `Scroll ⬆` / `Scroll ⬇` (`--panel2` background, `--border` outline). Hover:
+  border + text turn `--accent`; the Auto "on" state keeps its green
+  (`:hover:not(.on)`).
 
-The bottom bar is a status-bar-like strip: its action buttons (`Scroll ⬆️` /
-`Scroll ⬇`) are right-aligned (`justify-content:flex-end`).
+**One primary button per screen.** Each view has exactly one visually dominant,
+bright "target" button (session view — `⟳ Refresh`; settings — `💾 Save`; gate —
+sign-in). Every other control, including the bottom-bar scroll buttons, must
+stay quiet (outline family or muted fill) and never outshine the primary one.
+Do not add a second loud accent button to a view.
+
+The bottom bar is a status-bar-like strip: its buttons (`Scroll ⬆` / `Scroll ⬇`)
+are right-aligned (`justify-content:flex-end`), and its right padding adds
+`--scrollbar-w` so their right edge lines up with the toolbar buttons above —
+those sit inside the scrollable timeline and are inset by its scrollbar.
 
 ### Settings blocks and separators
 
@@ -344,6 +353,28 @@ no heading, just the line. The option label is the prominent part
 (`.exrow` / `.portrow`, `--fs-m`); its explanation is the dim small line
 `.opt-note` (`--fs-xs`, `--muted`) placed under the option. The
 label-prominent / hint-dim hierarchy applies everywhere settings are shown.
+
+**Naming options.** A setting's label must be clear and unambiguous yet compact
+(short line, no jargon): `Message nesting indent (px)`, not `Indent per level`.
+The dim description under the label may be long and detailed — move the
+explanation there, not into the label.
+
+### Geometry, alignment and the grid
+
+**When adding any new element, check its geometry against the existing
+elements** — edges, paddings, heights, baselines — and snap to the implied grid
+wherever possible:
+
+- Horizontal edges align with the block gutter: content, cards, toolbars and
+  bars use the same 20px side gutter (`--sp-4`). A control in a bar aligns its
+  right/left edge to the same gutter as the neighbouring toolbar.
+- Mind the scroll container: anything *inside* the scrollable area is inset by
+  the scrollbar (`--scrollbar-w`, 10px with `scrollbar-width:thin`), anything
+  *outside* it is not — compensate explicitly (see `#bottombar`).
+- Vertical rhythm uses the spacing scale (`--sp-1..4`); a new control inside a
+  row keeps that row's padding and height.
+- Verification: measure the new element's `getBoundingClientRect()` against its
+  neighbours — a 1px difference is a defect to fix, not noise.
 
 ### Status messages and visibility
 

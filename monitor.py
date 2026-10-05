@@ -4,7 +4,7 @@
 Inject Monitor — web UI for diagnosing memory injections into Hermes LLM requests.
 
 Author: Oleg Maisak (idea & vibe coding) + Lex (coding agent, via Hermes Agent)
-Version: 1.2.2
+Version: 1.2.6
 Date: 2026-10-05
 
 Purpose:
@@ -61,7 +61,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-APP_VERSION = "1.2.2"
+APP_VERSION = "1.2.6"
 
 # ── Paths ───────────────────────────────────────────────────────────────────
 HOME = Path.home()
@@ -73,7 +73,7 @@ DEFAULT_PORT = 8092
 
 # Left indent per message type: level × indent_px
 # (0 = System prompt/User, 1 = Assistant/Assistant→tool call, 2 = Tool result)
-DEFAULT_INDENT_PX = 14
+DEFAULT_INDENT_PX = 28
 
 # Default expansion state of collapsible UI elements (Settings → Default expansion)
 DEFAULT_EXPAND = {

@@ -12,6 +12,10 @@
     --font-mono:ui-monospace,Consolas,monospace;
     /* spacing scale */
     --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:20px;
+    /* width of the timeline scrollbar (scrollbar-width:thin in Chromium ~10px);
+       used to align the bottom bar with the toolbar buttons, which are inset
+       by the scrollbar while the bar itself is outside the scroll area */
+    --scrollbar-w:10px;
   }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
@@ -63,15 +67,20 @@
   #main{flex:1;min-height:0;overflow-y:auto;padding:0 0 40px;
     scrollbar-width:thin;scrollbar-color:var(--border) transparent}
   #bottombar{flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;
-    gap:8px;padding:6px 20px;background:var(--panel);border-top:1px solid var(--border)}
-  #scroll-up,#scroll-down{background:var(--accent-strong);color:#fff;border:none;
+    gap:8px;background:var(--panel);border-top:1px solid var(--border);
+    /* right padding = gutter (20px) + scrollbar width: aligns the bar buttons
+       with the toolbar buttons, which live inside the scrollable timeline */
+    padding:6px calc(var(--sp-4) + var(--scrollbar-w)) 6px var(--sp-4)}
+  /* Quiet outline buttons (same family as Auto / ⚙ Settings): the bottom bar
+     must not compete with the screen's single primary action (⟳ Refresh). */
+  #scroll-up,#scroll-down{background:var(--panel2);color:var(--text);border:1px solid var(--border);
     padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:var(--fs-s)}
 
   /* Button hover convention (single rule per family, no per-button exceptions):
      solid fills brighten slightly on hover; outline/ghost buttons take the
      accent border + text. */
-  #refresh:hover,.btn.primary:hover,#gate button:hover,#scroll-up:hover,#scroll-down:hover{filter:brightness(1.18)}
-  #auto:not(.on):hover,#cfgbtn:hover,.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  #refresh:hover,.btn.primary:hover,#gate button:hover{filter:brightness(1.18)}
+  #auto:not(.on):hover,#cfgbtn:hover,#scroll-up:hover,#scroll-down:hover,.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
   #top{margin:0;padding:12px 20px 8px;position:sticky;top:0;background:var(--bg);z-index:5;
     border-bottom:1px solid var(--border)}
   #top .row1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
