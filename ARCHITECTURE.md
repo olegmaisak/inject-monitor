@@ -406,6 +406,7 @@ JS never sets colors or display directly:
 | ⏹ | stop |
 | 🔐 | auth / token |
 | 💾 | save |
+| ⬆ / ⬇ | bottom-bar navigation (Scroll ⬆ / Scroll ⬇, text-style arrows — same style for both) |
 
 Rules: a status emoji pairs with the matching status color (✓+green, ✗+red);
 one emoji per control; emoji carry meaning, they are not decoration.
