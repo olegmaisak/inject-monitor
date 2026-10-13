@@ -22,7 +22,9 @@ history see [GitHub commits](https://github.com/olegmaisak/inject-monitor/commit
   pulse repeats on the current one, which is the whole signal. No muted-button
   state (it would need re-enabling logic to keep in sync).
 - Only **visible** User messages are navigated: the message-type filters hide
-  blocks, and with `👤 User` unchecked the buttons do nothing.
+  blocks, and with `👤 User` unchecked the buttons do nothing. If no User message
+  is on screen (manual scroll into a long tool-result tail), the nearest one in
+  the asked direction is shown — never a wrap-around to the other end.
 - Respects `prefers-reduced-motion: reduce` (instant jump, pulse kept).
 - ARCHITECTURE: bottom bar described as two groups; new section *Jump to the next
   User message*; Design System — scroll animation + landing pulse rule.

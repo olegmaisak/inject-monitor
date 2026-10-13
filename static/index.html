@@ -385,19 +385,33 @@ function userAnchors(){
   });
   return {up:up, down:down};
 }
+// Nearest User message strictly outside the reading area in the asked
+// direction: the first one below the viewport (↓) / the last one above it (↑).
+function nearestUser(list, dir){
+  var main=document.getElementById("main");
+  var top=document.getElementById("top");
+  var mr=main.getBoundingClientRect();
+  var from=mr.top+(top?top.offsetHeight:0), to=mr.bottom;
+  var best=null;
+  list.forEach(function(el){
+    var r=el.getBoundingClientRect();
+    if(dir>0){ if(!best && r.top>=to) best=el; }   // first below the viewport
+    else { if(r.bottom<=from) best=el; }           // last above the reading area
+  });
+  return best;
+}
 function jumpUser(dir){
   var main=document.getElementById("main");
   var list=visibleUserMsgs();
   if(!list.length) return;                    // nothing to navigate (filtered out)
   var a=userAnchors();
   var anchor = dir<0 ? a.up : a.down;
-  if(!anchor){                                // no User message on screen at all
-    var edge=list[dir<0 ? list.length-1 : 0];
-    landOn(main, edge); return;
-  }
-  var tgt=list[list.indexOf(anchor)+dir];
+  var tgt = anchor ? list[list.indexOf(anchor)+dir] : nearestUser(list, dir);
   if(tgt){ landOn(main, tgt); return; }
-  flashMsg(anchor);                           // already at the first / last one
+  if(anchor){ flashMsg(anchor); return; }      // already at the first / last one
+  // Scrolled past the last User message (or before the first): show the extreme
+  // one instead of going nowhere — no wrap-around to the opposite end.
+  landOn(main, dir>0 ? list[list.length-1] : list[0]);
 }
 // Put the target just below the sticky header (a naive top-aligned jump hides
 // it behind the header) and pulse it.

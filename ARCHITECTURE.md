@@ -140,6 +140,13 @@ instead the block is **pulsed again**, which is the whole feedback ("this is the
 first / the last one"). There is deliberately no muted/disabled button state:
 it would need re-enabling logic and an extra state to keep in sync.
 
+If no User message is in the reading area at all (the user scrolled manually,
+e.g. into a long tail of tool results), the buttons take the nearest User
+message *outside* the area in the asked direction — the next one below for `↓`,
+the previous one above for `↑`. Past the last User message the extreme one is
+shown (never a wrap-around to the opposite end of the session: `↓` must not
+teleport to the top).
+
 Filters also affect *which* messages the two ends refer to, so the rule is
 evaluated on every click, never cached (Auto mode can append messages at any
 time).
