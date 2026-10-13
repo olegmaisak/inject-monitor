@@ -103,11 +103,46 @@ step.
   - `👾 Assistant` — response text, optional `💭 Reasoning`, tool-call blocks.
   - `🔧 Tool call` / `🔧 Tool result` — collapsed on open; details expand inside.
   - Injections render as `<details class="inj">` with full block text in `<pre>`.
-- **Bottom bar** — persistent strip under the timeline with a single
-  `⬇ Scroll to bottom` button: an instant jump to the latest messages. It is a
-  layout strip, not an overlay (`#maincol` wraps `#main` + `#bottombar`): it
-  never covers messages, the sticky header or the sidebar, and it survives
-  `renderMain()` re-renders.
+- **Bottom bar** — persistent strip under the timeline, split into two groups
+  at its two ends:
+  - **left — User navigation**: `👤 User ⬆` / `👤 User ⬇` move the timeline to
+    the previous / next `👤 User` message (see *Jump to the next User message*
+    below);
+  - **right — session ends**: `Scroll ⬆` / `Scroll ⬇` move to the first / last
+    message of the session.
+  Every move is an animated (simulated) scroll with a landing pulse on the
+  target block — never a teleport.
+
+  The bar is a layout strip, not an overlay (`#maincol` wraps `#main` +
+  `#bottombar`): it never covers messages, the sticky header or the sidebar, and
+  it survives `renderMain()` re-renders. A themed control never sits on the left
+  with empty space on its right: the two ends are both occupied.
+
+### Jump to the next User message
+
+`👤 User ⬆` / `👤 User ⬇` jump between `data-type="user"` blocks. Which block
+counts as *current* depends on the direction (never on a single shared cursor):
+
+- **↑** works from the **topmost** User message visible in the reading area →
+  target = the User message before it;
+- **↓** works from the **bottommost** visible one → target = the User message
+  after it.
+
+The reading area starts *below* the sticky `#top` header (it lives inside
+`#main`, 145px tall at 1400×900) — that is why a jump lands at
+`block.top − headerHeight − 8`, not at the block's own top (a naive top-aligned
+jump hides the target behind the header; measured: 0px vs 153px).
+
+Only **visible** blocks count: the message-type filters hide blocks with the
+`.hidden` class (with `👤 User` unchecked there is nothing to navigate, and the
+buttons do nothing). At the first / last User message there is no movement —
+instead the block is **pulsed again**, which is the whole feedback ("this is the
+first / the last one"). There is deliberately no muted/disabled button state:
+it would need re-enabling logic and an extra state to keep in sync.
+
+Filters also affect *which* messages the two ends refer to, so the rule is
+evaluated on every click, never cached (Auto mode can append messages at any
+time).
 
 ### Settings panel
 
@@ -330,9 +365,9 @@ Two button families, one hover rule each (no per-button exceptions):
   and gate sign-in (`--accent-strong` — darker accent, kept for white-text
   contrast). Hover: `filter: brightness(1.18)`.
 - **Outline/ghost** (secondary actions): `Auto`, `⚙ Settings`, `.btn.ghost`,
-  `Scroll ⬆` / `Scroll ⬇` (`--panel2` background, `--border` outline). Hover:
-  border + text turn `--accent`; the Auto "on" state keeps its green
-  (`:hover:not(.on)`).
+  `Scroll ⬆` / `Scroll ⬇`, `👤 User ⬆` / `👤 User ⬇` (`--panel2` background,
+  `--border` outline). Hover: border + text turn `--accent`; the Auto "on" state
+  keeps its green (`:hover:not(.on)`).
 
 **One primary button per screen.** Each view has exactly one visually dominant,
 bright "target" button (session view — `⟳ Refresh`; settings — `💾 Save`; gate —
@@ -340,10 +375,22 @@ sign-in). Every other control, including the bottom-bar scroll buttons, must
 stay quiet (outline family or muted fill) and never outshine the primary one.
 Do not add a second loud accent button to a view.
 
-The bottom bar is a status-bar-like strip: its buttons (`Scroll ⬆` / `Scroll ⬇`)
-are right-aligned (`justify-content:flex-end`), and its right padding adds
-`--scrollbar-w` so their right edge lines up with the toolbar buttons above —
-those sit inside the scrollable timeline and are inset by its scrollbar.
+The bottom bar is a status-bar-like strip and carries two button groups at its
+two ends (`justify-content:space-between`): session navigation (User) on the
+left, end-of-session jumps (`Scroll ⬆` / `Scroll ⬇`) on the right. Its right
+padding adds `--scrollbar-w` so the right group's edge lines up with the toolbar
+buttons above — those sit inside the scrollable timeline and are inset by its
+scrollbar.
+
+**Scroll animation and landing pulse.** Bar moves are animated in JavaScript
+(`animateScroll`: ~320ms, `easeInOutQuad`, `requestAnimationFrame`), not with
+CSS `scroll-behavior:smooth`: a native smooth scroll across tens of thousands of
+pixels is slow and janky, while a self-driven animation stays fast yet reads as a
+movement rather than a teleport. Both groups share it. The block landed on gets
+`.landed` — a three-pulse glow (`border-color` + `box-shadow` only, so the
+message's own surface colour is untouched), ~1.8s, re-triggered on every jump
+including the "already at the edge" case. `prefers-reduced-motion: reduce` turns
+the animation off (instant jump, the pulse stays).
 
 ### Settings blocks and separators
 

@@ -5,6 +5,28 @@ Version format: `vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD)`.
 This file lists the significant milestones of the project. For the full commit
 history see [GitHub commits](https://github.com/olegmaisak/inject-monitor/commits/main).
 
+## v1.3.0 (2026.10.13) — User-message navigation: jump between User messages with a landing pulse
+
+- **Bottom bar split into two groups**: `👤 User ⬆` / `👤 User ⬇` at the left,
+  `Scroll ⬆` / `Scroll ⬇` at the right (`justify-content:space-between`).
+- **Jump between User messages.** Which message counts as *current* depends on
+  the direction: `↑` works from the topmost visible User message, `↓` from the
+  bottommost one (the reading area starts below the sticky header, which is why
+  tens of thousands of pixels of timeline never make the target ambiguous).
+- **Animated (simulated) scroll** instead of a teleport: ~320ms
+  `easeInOutQuad` via `requestAnimationFrame` — a native smooth scroll over very
+  long sessions is slow and janky. Both button groups now share it, so the bar
+  behaves uniformly.
+- **Landing pulse**: the message you moved to glows three times (`border-color` +
+  `box-shadow` only). At the first / last User message there is no movement — the
+  pulse repeats on the current one, which is the whole signal. No muted-button
+  state (it would need re-enabling logic to keep in sync).
+- Only **visible** User messages are navigated: the message-type filters hide
+  blocks, and with `👤 User` unchecked the buttons do nothing.
+- Respects `prefers-reduced-motion: reduce` (instant jump, pulse kept).
+- ARCHITECTURE: bottom bar described as two groups; new section *Jump to the next
+  User message*; Design System — scroll animation + landing pulse rule.
+
 ## v1.2.6 (2026.10.05) — UI polish: quiet scroll buttons, alignment, clearer indent option
 
 - `Scroll ⬆` / `Scroll ⬇` moved from the solid to the outline button family

@@ -4,8 +4,8 @@
 Inject Monitor — web UI for diagnosing memory injections into Hermes LLM requests.
 
 Author: Oleg Maisak (idea & vibe coding) + Lex (coding agent, via Hermes Agent)
-Version: 1.2.6
-Date: 2026-10-05
+Version: 1.3.0
+Date: 2026-10-13
 
 Purpose:
   Reads the Hermes session database (SQLite, READ-ONLY) and shows:
@@ -61,7 +61,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
-APP_VERSION = "1.2.6"
+APP_VERSION = "1.3.0"
 
 # ── Paths ───────────────────────────────────────────────────────────────────
 HOME = Path.home()

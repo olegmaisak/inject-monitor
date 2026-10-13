@@ -66,21 +66,26 @@
   #maincol{flex:1;min-width:0;display:flex;flex-direction:column}
   #main{flex:1;min-height:0;overflow-y:auto;padding:0 0 40px;
     scrollbar-width:thin;scrollbar-color:var(--border) transparent}
-  #bottombar{flex-shrink:0;display:flex;align-items:center;justify-content:flex-end;
+  /* Two groups at the two ends: session navigation (User) at the left,
+     end-of-session jumps (Scroll) at the right. A bottom strip never has a
+     control on the left with empty space on the right. */
+  #bottombar{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
     gap:8px;background:var(--panel);border-top:1px solid var(--border);
     /* right padding = gutter (20px) + scrollbar width: aligns the bar buttons
        with the toolbar buttons, which live inside the scrollable timeline */
     padding:6px calc(var(--sp-4) + var(--scrollbar-w)) 6px var(--sp-4)}
+  .bgroup{display:flex;align-items:center;gap:8px}
   /* Quiet outline buttons (same family as Auto / ⚙ Settings): the bottom bar
      must not compete with the screen's single primary action (⟳ Refresh). */
-  #scroll-up,#scroll-down{background:var(--panel2);color:var(--text);border:1px solid var(--border);
-    padding:6px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:var(--fs-s)}
+  #scroll-up,#scroll-down,#nav-usr-up,#nav-usr-down{background:var(--panel2);color:var(--text);
+    border:1px solid var(--border);padding:6px 14px;border-radius:8px;cursor:pointer;
+    font-weight:600;font-size:var(--fs-s)}
 
   /* Button hover convention (single rule per family, no per-button exceptions):
      solid fills brighten slightly on hover; outline/ghost buttons take the
      accent border + text. */
   #refresh:hover,.btn.primary:hover,#gate button:hover{filter:brightness(1.18)}
-  #auto:not(.on):hover,#cfgbtn:hover,#scroll-up:hover,#scroll-down:hover,.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+  #auto:not(.on):hover,#cfgbtn:hover,#scroll-up:hover,#scroll-down:hover,#nav-usr-up:hover,#nav-usr-down:hover,.btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
   #top{margin:0;padding:12px 20px 8px;position:sticky;top:0;background:var(--bg);z-index:5;
     border-bottom:1px solid var(--border)}
   #top .row1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -169,6 +174,16 @@
   .msg .raw{white-space:pre-wrap;word-break:break-word;font-size:var(--fs-s);
     margin-bottom:12px} /* gap between message text and injection blocks */
   .msg .mbody>details:last-child{margin-bottom:0}
+  /* Landing pulse of the bottom-bar navigation: the message we moved to glows
+     three times, so the eye lands on it immediately. Border + glow only (the
+     surface colour stays the message's own). Re-triggered on every jump,
+     including the "already at the first/last message" case. */
+  @keyframes nav-landed{
+    0%,100%{border-color:var(--border);box-shadow:0 0 0 0 rgba(88,166,255,0)}
+    50%{border-color:var(--accent);
+        box-shadow:0 0 0 3px rgba(88,166,255,.25),0 0 18px 2px rgba(88,166,255,.28)}
+  }
+  .msg.landed{animation:nav-landed .6s ease-in-out 3}
 
   pre.prompt{white-space:pre-wrap;word-break:break-word;font-size:var(--fs-s);
     max-height:420px;overflow:auto;background:var(--panel2);border:1px solid var(--border);

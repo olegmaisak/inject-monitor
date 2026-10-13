@@ -65,8 +65,16 @@
   <div id="maincol">
     <div id="main"></div>
     <div id="bottombar">
-      <button id="scroll-up" onclick="scrollToTop()" title="Jump to the first message of the session">Scroll ⬆</button>
-      <button id="scroll-down" onclick="scrollToBottom()" title="Jump to the latest messages of the session">Scroll ⬇</button>
+      <!-- Left group: session navigation between User messages.
+           Right group: jumps to the two ends of the session. -->
+      <div class="bgroup">
+        <button id="nav-usr-up" onclick="jumpUser(-1)" title="Jump to the previous User message (the one above the topmost visible)">👤 User ⬆</button>
+        <button id="nav-usr-down" onclick="jumpUser(1)" title="Jump to the next User message (the one below the bottommost visible)">👤 User ⬇</button>
+      </div>
+      <div class="bgroup">
+        <button id="scroll-up" onclick="scrollToTop()" title="Jump to the first message of the session">Scroll ⬆</button>
+        <button id="scroll-down" onclick="scrollToBottom()" title="Jump to the latest messages of the session">Scroll ⬇</button>
+      </div>
     </div>
   </div>
   <div id="settings">
@@ -157,7 +165,7 @@ var TOKEN = localStorage.getItem("im_token") || "";
 (function(){ var m=location.search.match(/[?&]token=([^&]+)/); if(m) TOKEN=m[1]; })();
 var STATE = {sessions: [], active: null, data: null};
 var PAIRS = []; // trigger tag pairs from the server (config.json)
-var APP_VERSION = "1.2.6";
+var APP_VERSION = "1.3.0";
 // Left indent per message type: level × INDENT_PX
 // (0 = System prompt/User, 1 = Assistant/Assistant→tool call, 2 = Tool result)
 var INDENT_PX = 28;
@@ -308,16 +316,105 @@ function restartServer(){
     .catch(e=>{ srvStatus("✗ "+esc(e),"err"); });
 }
 function closeSettings(){ showView("session"); }
-// "Scroll up" / "Scroll down" (bottom bar): jump between the two ends of the
-// session. Instant (not smooth) on purpose: on very long sessions a smooth
-// scroll across tens of thousands of pixels is slow and janky.
-function scrollToTop(){
-  var m=document.getElementById("main");
-  m.scrollTop=0;
+
+// ── Bottom bar: scroll animation, jump-to-User navigation (v1.3.0) ──────────
+// Simulated (self-driven) scroll. A native smooth scroll across tens of
+// thousands of pixels is slow and janky, so the bar animates the scroll
+// position itself: fast (~320 ms) but visible — the movement reads as a
+// move, not as a teleport. Honours prefers-reduced-motion (instant then).
+function animateScroll(el, to, ms){
+  to = Math.max(0, Math.min(to, el.scrollHeight - el.clientHeight));
+  if(window._anim){ cancelAnimationFrame(window._anim); window._anim=null; }
+  var from = el.scrollTop;
+  if(ms<=0 || Math.abs(to-from)<2 || !window.requestAnimationFrame ||
+     (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)){
+    el.scrollTop = to; return;
+  }
+  var t0 = null;
+  function step(ts){
+    if(t0===null) t0=ts;
+    var p = Math.min(1, (ts-t0)/ms);
+    var e = p<0.5 ? 2*p*p : -1+(4-2*p)*p;   // easeInOutQuad
+    el.scrollTop = from + (to-from)*e;
+    if(p<1){ window._anim=requestAnimationFrame(step); }
+    else { window._anim=null; el.scrollTop=to; }
+  }
+  window._anim = requestAnimationFrame(step);
 }
+// Landing pulse: the message we moved to glows briefly so the eye finds it.
+// At the session edges the same pulse is the whole feedback: no muted-button
+// logic — a repeated glow says "this is the first / the last one"
+// (Oleg, 13.10.2026).
+var FLASH=null, FLASH_T=null;               // at most ONE glowing block at a time
+function flashMsg(el){
+  if(!el) return;
+  if(FLASH_T){ clearTimeout(FLASH_T); FLASH_T=null; }
+  if(FLASH && FLASH!==el) FLASH.classList.remove("landed");
+  FLASH=el;
+  el.classList.remove("landed");
+  void el.offsetWidth;                       // restart the animation
+  el.classList.add("landed");
+  FLASH_T=setTimeout(function(){
+    el.classList.remove("landed");
+    if(FLASH===el) FLASH=null;
+    FLASH_T=null;
+  }, 2100);
+}
+// User messages currently shown (filters hide blocks with the .hidden class).
+function visibleUserMsgs(){
+  return Array.prototype.filter.call(
+    document.querySelectorAll('#main .msg[data-type="user"]'),
+    function(el){ return !el.classList.contains("hidden"); });
+}
+// "Current" User message depends on the direction asked for
+// (Oleg, 13.10.2026): ↑ works from the TOPMOST visible one, ↓ from the
+// BOTTOMMOST visible one. The reading area starts below the sticky #top
+// header, which lives inside #main.
+function userAnchors(){
+  var main=document.getElementById("main");
+  var top=document.getElementById("top");
+  var mr=main.getBoundingClientRect();
+  var from=mr.top+(top?top.offsetHeight:0), to=mr.bottom;
+  var up=null, down=null;
+  visibleUserMsgs().forEach(function(el){
+    var r=el.getBoundingClientRect();
+    if(r.bottom>from && r.top<to){           // visible at least partially
+      if(!up) up=el;                          // first (topmost) → for ↑
+      down=el;                                // last (bottommost) → for ↓
+    }
+  });
+  return {up:up, down:down};
+}
+function jumpUser(dir){
+  var main=document.getElementById("main");
+  var list=visibleUserMsgs();
+  if(!list.length) return;                    // nothing to navigate (filtered out)
+  var a=userAnchors();
+  var anchor = dir<0 ? a.up : a.down;
+  if(!anchor){                                // no User message on screen at all
+    var edge=list[dir<0 ? list.length-1 : 0];
+    landOn(main, edge); return;
+  }
+  var tgt=list[list.indexOf(anchor)+dir];
+  if(tgt){ landOn(main, tgt); return; }
+  flashMsg(anchor);                           // already at the first / last one
+}
+// Put the target just below the sticky header (a naive top-aligned jump hides
+// it behind the header) and pulse it.
+function landOn(main, el){
+  var top=document.getElementById("top");
+  var mr=main.getBoundingClientRect();
+  var y=(el.getBoundingClientRect().top - mr.top) + main.scrollTop
+        - (top?top.offsetHeight:0) - 8;
+  animateScroll(main, y, 320);
+  flashMsg(el);
+}
+// "Scroll ⬆" / "Scroll ⬇" (bottom bar, right group): the two ends of the
+// session, with the same scroll animation as the User navigation.
+function scrollToTop(){ animateScroll(document.getElementById("main"), 0, 360); }
 function scrollToBottom(){
   var m=document.getElementById("main");
-  m.scrollTop=m.scrollHeight;
+  animateScroll(m, m.scrollHeight, 360);
 }
 // Session panel option "Auto mode is ON when a session opens": on every
 // session open (full render path) enable the Auto button if the config asks
