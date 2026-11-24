@@ -5,6 +5,22 @@ Version format: `vMAJOR.FEATURE.BUGFIX (YYYY.MM.DD)`.
 This file lists the significant milestones of the project. For the full commit
 history see [GitHub commits](https://github.com/olegmaisak/inject-monitor/commits/main).
 
+## v1.3.1 (2026.11.24) — Tool-call blocks now show their visible text
+
+- **Bug:** the visible assistant text that accompanies a tool call (the short
+  "preamble" written before the call, e.g. *"Checking the logs…"*) was stored,
+  returned by `/api/sessions/<id>/messages` in `content`, and then **never
+  rendered** — the `assistant + tool_calls` branch of `renderMsg` drew only
+  Reasoning and the tool-call blocks, so the text silently disappeared.
+  19 393 of 43 540 tool-call messages in the live DB carry such text.
+- **Fix:** that text is now rendered as `<div class="raw">` between the
+  Reasoning block and the tool-call blocks — expanded, not folded into a
+  collapsible `.sec` block, because these lines are short.
+- Verified with a same-origin probe page in the install's `static/`
+  (`_probe-toolcall.html`, removed after the run): 24 tool-call blocks, the 2
+  that carry text render it in `.mbody > .raw`, sample matched. The same probe
+  on the pre-fix file times out — the check demonstrably can go red.
+
 ## v1.3.0 (2026.10.13) — User-message navigation: jump between User messages with a landing pulse
 
 - **Bottom bar split into two groups**: `👤 User ⬆` / `👤 User ⬇` at the left,

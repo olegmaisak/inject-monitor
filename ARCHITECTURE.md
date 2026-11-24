@@ -101,6 +101,10 @@ step.
   - `🧩 System prompt` — collapsed by default; sections with labelled injection blocks.
   - `👤 User` — text with nested `🧠` injection blocks.
   - `👾 Assistant` — response text, optional `💭 Reasoning`, tool-call blocks.
+  - `👾 Assistant → 🔧 Tool call` — optional `💭 Reasoning`, then the visible
+    text that accompanied the call (a short preamble, rendered **expanded** as
+    `<div class="raw">` — not folded into a collapsible `.sec` block, since such
+    lines are short), then one `🔧 <tool>` block per call.
   - `🔧 Tool call` / `🔧 Tool result` — collapsed on open; details expand inside.
   - Injections render as `<details class="inj">` with full block text in `<pre>`.
 - **Bottom bar** — persistent strip under the timeline, split into two groups
